@@ -128,6 +128,16 @@ st.markdown("""
         border: 1px solid #ddd;
         padding: 0.5rem;
     }
+    
+    div.stButton > button {
+        color: white !important;
+        background-color: #FB7299 !important;
+    }
+    
+    ::placeholder {
+        color: gray !important;
+        opacity: 1 !important; /* 确保颜色不透明 */
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -243,7 +253,7 @@ components.html("""
         text-align: center;
         color: #FB7299; font-size: 36px;
     ">
-        B站视频脚本转思维导图
+        B站视频链接转思维导图
     </h1>
 """, height=85)
 
@@ -270,12 +280,37 @@ components.html("""
 col1, col2 = st.columns(2)
 
 with col1:
-    video_url = st.text_input("视频链接", value="https://www.bilibili.com/video/BV1S84y1a78h/?spm_id_from=333.337.search-card.all.click&vd_source=1d3c4c24a011886d227d3e54fe31720b", help="输入B站视频链接")
+    video_url = st.text_input(
+        "视频链接",
+        value="", 
+        placeholder="请输入B站视频链接",
+        help="输入B站视频链接"
+    )
 
 with col2:
-    access_token = st.text_input("访问令牌", value=COZE_API_TOKEN, type="password", help="输入你的API访问令牌")
+    access_token = st.text_input(
+        "访问令牌",
+        value="", 
+        type="password", 
+        placeholder="请输入API访问令牌",
+        help="输入你的API访问令牌"
+    )
 
-# 按钮和调用次数信息
+# 确保在按钮代码之前应用 CSS
+st.markdown("""
+    <style>
+    div.stButton > button {
+        color: white !important;
+        background-color: #FB7299 !important;
+        border: none;
+        border-radius: 4px;
+        padding: 0.5rem 1rem;
+        font-weight: bold;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# 按钮代码
 submit_button = st.button("🚀 生成思维导图", use_container_width=True, disabled=st.session_state.is_processing)
 st.info(f"今日已调用次数: {st.session_state.call_count}/{MAX_CALLS_PER_SESSION} (每日限额)")
 
@@ -363,7 +398,7 @@ if submit_button:
                 
                 try:
                     if cached:
-                        st.info("使用缓存结果（避免重复调用）")
+                        #st.info("使用缓存结果（避免重复调用）")
                         result = cached_result
                     else:
                         # 显示加载状态
@@ -452,7 +487,7 @@ if st.session_state.result_data:
     
     # 思维导图链接
     if "mindmap_url" in workflow_data and workflow_data["mindmap_url"]:
-        st.markdown(f'<a href="{workflow_data["mindmap_url"]}" target="_blank" style="background-color: #FB7299; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px; display: block; width: 100%; text-align: center; margin-top: 10px;"><span>🔗 在线编辑思维导图</span></a>', unsafe_allow_html=True)
+        st.markdown(f'<a href="{workflow_data["mindmap_url"]}" target="_blank" style="background-color: #FB7299; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px; display: block; width: 100%; text-align: center; margin-top: 20px; margin-bottom: 20px;"><span>🔗 在线编辑思维导图</span></a>', unsafe_allow_html=True)
     
 
 
@@ -474,7 +509,7 @@ if st.session_state.result_data:
     summary_md = st.text_area(
         "AI总结", 
         value=workflow_data.get("summary", ""), 
-        height=600,
+        height=300,
         key="summary_edit"
     )
 
@@ -485,7 +520,7 @@ if st.session_state.result_data:
     transcript_md = st.text_area(
         "视频逐字稿", 
         value=workflow_data.get("transcript", ""), 
-        height=600,
+        height=300,
         key="transcript_edit"
     )
     
