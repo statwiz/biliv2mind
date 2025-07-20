@@ -1,7 +1,11 @@
 import streamlit as st
 import json
 import time
+import os
+import pickle
 from datetime import datetime, timedelta
+from pathlib import Path
+import hashlib
 from coze_api import CozeAPI
 from config import BOT_ID, COZE_API_TOKEN, API_URL, EXPECTED_PARAMS
 from utils import truncate_text, get_current_time, parse_workflow_response
@@ -13,20 +17,94 @@ st.set_page_config(
     layout="wide"
 )
 
+# 持久化存储目录
+STORAGE_DIR = Path("./storage")
+STORAGE_DIR.mkdir(exist_ok=True)
+USAGE_FILE = STORAGE_DIR / "usage_data.pkl"
+
+# 获取用户标识（IP地址或会话ID）
+def get_user_identifier():
+    # 获取客户端IP地址
+    try:
+        # 尝试从请求头中获取客户端IP
+        client_ip = st.query_params.get("client_ip", ["unknown"])[0]
+    except:
+        client_ip = "unknown"
+    
+    # 创建一个基于IP和日期的标识符
+    # 这样每天都会重置限制，但同一天内同一IP的限制是持久的
+    today = datetime.now().strftime("%Y-%m-%d")
+    identifier = f"{client_ip}_{today}"
+    
+    # 使用哈希函数增加隐私保护
+    return hashlib.md5(identifier.encode()).hexdigest()
+
+# 加载使用数据
+def load_usage_data():
+    if USAGE_FILE.exists():
+        try:
+            with open(USAGE_FILE, "rb") as f:
+                return pickle.load(f)
+        except:
+            return {}
+    return {}
+
+# 保存使用数据
+def save_usage_data(data):
+    with open(USAGE_FILE, "wb") as f:
+        pickle.dump(data, f)
+
+# 获取或初始化用户使用数据
+def get_user_usage(user_id):
+    usage_data = load_usage_data()
+    if user_id not in usage_data:
+        usage_data[user_id] = {
+            "call_count": 0,
+            "last_call_time": None,
+            "call_history": {}
+        }
+        save_usage_data(usage_data)
+    return usage_data[user_id]
+
+# 更新用户使用数据
+def update_user_usage(user_id, call_count=None, last_call_time=None, call_history=None):
+    usage_data = load_usage_data()
+    if user_id not in usage_data:
+        usage_data[user_id] = {
+            "call_count": 0,
+            "last_call_time": None,
+            "call_history": {}
+        }
+    
+    if call_count is not None:
+        usage_data[user_id]["call_count"] = call_count
+    
+    if last_call_time is not None:
+        usage_data[user_id]["last_call_time"] = last_call_time
+    
+    if call_history is not None:
+        usage_data[user_id]["call_history"] = call_history
+    
+    save_usage_data(usage_data)
+
+# 获取用户标识符
+user_id = get_user_identifier()
+user_usage = get_user_usage(user_id)
+
 # 初始化会话状态
 if 'call_count' not in st.session_state:
-    st.session_state.call_count = 0
+    st.session_state.call_count = user_usage["call_count"]
 if 'last_call_time' not in st.session_state:
-    st.session_state.last_call_time = None
+    st.session_state.last_call_time = user_usage["last_call_time"]
 if 'call_history' not in st.session_state:
-    st.session_state.call_history = {}
+    st.session_state.call_history = user_usage["call_history"]
 if 'cache' not in st.session_state:
     st.session_state.cache = {}
 if 'is_processing' not in st.session_state:
     st.session_state.is_processing = False
 
 # 调用限制配置
-MAX_CALLS_PER_SESSION = 10  # 每个会话最大调用次数
+MAX_CALLS_PER_SESSION =30  # 每个会话最大调用次数
 WORKFLOW_TIMEOUT = 5 * 60  # 工作流执行超时时间（秒）
 
 # 标题
@@ -61,11 +139,17 @@ with st.sidebar:
     col1, col2 = st.columns(2)
     with col1:
         if st.button("重置调用计数", key="reset_count", disabled=st.session_state.is_processing):
-            st.session_state.call_count = 0
-            st.session_state.last_call_time = None
-            st.session_state.call_history = {}
-            st.success("调用计数已重置！")
-            st.rerun()
+            # 只有在开发环境或者管理员模式下才允许重置
+            if os.environ.get("STREAMLIT_ENV") == "development" or st.session_state.get("is_admin", False):
+                st.session_state.call_count = 0
+                st.session_state.last_call_time = None
+                st.session_state.call_history = {}
+                # 更新持久化存储
+                update_user_usage(user_id, call_count=0, last_call_time=None, call_history={})
+                st.success("调用计数已重置！")
+                st.rerun()
+            else:
+                st.error("权限不足，无法重置调用计数")
     
     with col2:
         if st.button("清除结果缓存", key="clear_cache", disabled=st.session_state.is_processing):
@@ -100,9 +184,6 @@ with col1:
             if key and value:
                 parameters[key] = value
         
-        # 添加强制刷新选项
-        force_refresh = st.checkbox("强制刷新（忽略缓存）", value=False)
-        
         # 显示当前处理状态
         if st.session_state.is_processing:
             st.warning("⏳ 正在处理工作流请求，请耐心等待...")
@@ -119,7 +200,7 @@ with col2:
 def check_call_limits():
     # 检查调用次数限制
     if st.session_state.call_count >= MAX_CALLS_PER_SESSION:
-        return False, f"已达到最大调用次数限制（{MAX_CALLS_PER_SESSION}次）。请重置计数或稍后再试。"
+        return False, f"已达到最大调用次数限制（{MAX_CALLS_PER_SESSION}次）。请联系管理员重置或等待明天再试。"
     
     return True, ""
 
@@ -153,7 +234,7 @@ if submit_button:
             
             with result_placeholder.container():
                 try:
-                    if cached and not force_refresh:
+                    if cached:
                         st.info("使用缓存结果（避免重复调用）")
                         result = cached_result
                     else:
@@ -168,17 +249,30 @@ if submit_button:
                             st.session_state.call_count += 1
                             st.session_state.last_call_time = datetime.now()
                             
+                            # 更新持久化存储
+                            update_user_usage(
+                                user_id, 
+                                call_count=st.session_state.call_count,
+                                last_call_time=st.session_state.last_call_time
+                            )
+                            
                             # 只缓存成功的结果
                             if not result.get("error") and result.get("code") == 0:
                                 st.session_state.cache[cache_key] = result
                             
                             # 记录调用历史
-                            st.session_state.call_history[st.session_state.last_call_time.strftime("%H:%M:%S")] = {
+                            call_time = st.session_state.last_call_time.strftime("%H:%M:%S")
+                            st.session_state.call_history[call_time] = {
                                 "parameters": parameters,
                                 "result_code": result.get("code", "未知"),
                                 "success": not result.get("error") and result.get("code") == 0,
                                 "elapsed_time": f"{elapsed_time:.2f}秒"
                             }
+                            
+                            # 更新持久化存储中的调用历史
+                            user_usage = get_user_usage(user_id)
+                            user_usage["call_history"][call_time] = st.session_state.call_history[call_time]
+                            update_user_usage(user_id, call_history=user_usage["call_history"])
                     
                     # 显示结果
                     if result.get("error"):
@@ -306,10 +400,10 @@ st.markdown("""
 4. **查看结果**：在右侧查看工作流的返回结果
 
 ### 调用限制说明
-- 每个会话最多调用 {0} 次
+- 每个用户每天最多调用 {0} 次
 - 相同参数的成功调用会使用缓存结果，不会重复请求API
-- 可以勾选"强制刷新"选项忽略缓存
 - 调用工作流期间，提交按钮将被禁用，避免重复提交
+- 调用限制基于用户标识，刷新页面不会重置限制
 
 ### API 接口说明
 - **接口地址**: `https://api.coze.cn/v1/workflow/run`
