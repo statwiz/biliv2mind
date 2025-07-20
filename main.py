@@ -22,10 +22,13 @@ if 'call_history' not in st.session_state:
     st.session_state.call_history = {}
 if 'cache' not in st.session_state:
     st.session_state.cache = {}
+if 'is_processing' not in st.session_state:
+    st.session_state.is_processing = False
 
 # 调用限制配置
 MAX_CALLS_PER_SESSION = 10  # 每个会话最大调用次数
 COOLDOWN_SECONDS = 5  # 调用冷却时间（秒）
+WORKFLOW_TIMEOUT = 60  # 工作流执行超时时间（秒）
 
 # 标题
 st.title("🤖 扣子工作流调用器")
@@ -58,7 +61,7 @@ with st.sidebar:
     # 添加管理按钮
     col1, col2 = st.columns(2)
     with col1:
-        if st.button("重置调用计数", key="reset_count"):
+        if st.button("重置调用计数", key="reset_count", disabled=st.session_state.is_processing):
             st.session_state.call_count = 0
             st.session_state.last_call_time = None
             st.session_state.call_history = {}
@@ -66,7 +69,7 @@ with st.sidebar:
             st.rerun()
     
     with col2:
-        if st.button("清除结果缓存", key="clear_cache"):
+        if st.button("清除结果缓存", key="clear_cache", disabled=st.session_state.is_processing):
             st.session_state.cache = {}
             st.success("缓存已清除！")
             st.rerun()
@@ -101,7 +104,11 @@ with col1:
         # 添加强制刷新选项
         force_refresh = st.checkbox("强制刷新（忽略缓存）", value=False)
         
-        submit_button = st.form_submit_button("🚀 调用工作流", use_container_width=True)
+        # 显示当前处理状态
+        if st.session_state.is_processing:
+            st.warning("⏳ 正在处理工作流请求，请耐心等待...")
+            
+        submit_button = st.form_submit_button("🚀 调用工作流", use_container_width=True, disabled=st.session_state.is_processing)
 
 with col2:
     st.header("📥 返回结果")
@@ -146,116 +153,135 @@ if submit_button:
         if not can_call:
             st.error(message)
         else:
+            # 设置处理状态为真，禁用按钮
+            st.session_state.is_processing = True
+            
             # 检查缓存
             cached, cached_result, cache_key = check_cache(parameters)
             
             with result_placeholder.container():
-                if cached and not force_refresh:
-                    st.info("使用缓存结果（避免重复调用）")
-                    result = cached_result
-                else:
-                    # 显示加载状态
-                    with st.spinner("正在调用工作流..."):
-                        coze_api = CozeAPI(access_token, workflow_id)
-                        result = coze_api.run_workflow(parameters)
-                        
-                        # 更新调用统计
-                        st.session_state.call_count += 1
-                        st.session_state.last_call_time = datetime.now()
-                        
-                        # 只缓存成功的结果
-                        if not result.get("error") and result.get("code") == 0:
-                            st.session_state.cache[cache_key] = result
-                        
-                        # 记录调用历史
-                        st.session_state.call_history[st.session_state.last_call_time.strftime("%H:%M:%S")] = {
-                            "parameters": parameters,
-                            "result_code": result.get("code", "未知"),
-                            "success": not result.get("error") and result.get("code") == 0
-                        }
-                
-                # 显示结果
-                if result.get("error"):
-                    st.error(f"调用失败: {result.get('message')}")
-                else:
-                    st.success("工作流调用成功！")
-                    
-                    # 显示基本信息
-                    col_info1, col_info2 = st.columns(2)
-                    
-                    with col_info1:
-                        st.metric("状态码", result.get("code", "未知"))
-                    
-                    with col_info2:
-                        st.metric("调用时间", get_current_time())
-                    
-                    # 显示状态信息
-                    if result.get("msg"):
-                        st.info(f"状态信息: {result.get('msg')}")
-                    
-                    # 显示调试链接
-                    if result.get("debug_url"):
-                        st.markdown(f"🔗 [查看调试信息]({result.get('debug_url')})")
-                    
-                    # 解析并显示工作流数据
-                    success, data = parse_workflow_response(result)
-                    
-                    if success:
-                        workflow_data = data
-                        st.subheader("工作流输出数据")
-                        
-                        # 创建标签页显示不同类型的数据
-                        tabs = st.tabs(["📊 结构化数据", "🖼️ 图片结果", "📝 文本结果", "🔗 链接结果"])
-                        
-                        with tabs[0]:
-                            st.json(workflow_data)
-                        
-                        with tabs[1]:
-                            # 显示图片相关结果
-                            if "mindmap_img" in workflow_data and workflow_data["mindmap_img"]:
-                                st.subheader("思维导图图片")
-                                try:
-                                    st.image(workflow_data["mindmap_img"], caption="生成的思维导图")
-                                except:
-                                    st.text(f"图片链接: {workflow_data['mindmap_img']}")
-                        
-                        with tabs[2]:
-                            # 显示文本结果
-                            if "summary" in workflow_data:
-                                st.subheader("摘要")
-                                st.text_area("", workflow_data["summary"], height=150, disabled=True, key="summary_text_area")
-                            
-                            if "transcript" in workflow_data:
-                                st.subheader("转录文本")
-                                st.text_area("", workflow_data["transcript"], height=150, disabled=True, key="transcript_text_area")
-                        
-                        with tabs[3]:
-                            # 显示链接结果
-                            if "mindmap_url" in workflow_data and workflow_data["mindmap_url"]:
-                                st.subheader("思维导图链接")
-                                st.markdown(f"[🔗 查看思维导图]({workflow_data['mindmap_url']})")
-                        
-                        # 显示具体的工作流参数
-                        st.subheader("具体参数值")
-                        expected_results = {
-                            "mindmap_img": workflow_data.get("mindmap_img", "未返回"),
-                            "mindmap_url": workflow_data.get("mindmap_url", "未返回"),
-                            "status_code": workflow_data.get("status_code", "未返回"),
-                            "msg": workflow_data.get("msg", "未返回"),
-                            "summary": truncate_text(workflow_data.get("summary", "未返回")),
-                            "transcript": truncate_text(workflow_data.get("transcript", "未返回"))
-                        }
-                        
-                        for i, (key, value) in enumerate(expected_results.items()):
-                            st.text(f"{key}: {value}")
+                try:
+                    if cached and not force_refresh:
+                        st.info("使用缓存结果（避免重复调用）")
+                        result = cached_result
                     else:
-                        st.error(f"解析数据失败: {data}")
-                        if isinstance(result.get("data"), str):
-                            st.subheader("原始数据")
-                            st.text_area("", result["data"], height=300, disabled=True, key="raw_data_text_area")
+                        # 显示加载状态
+                        with st.spinner("正在调用工作流..."):
+                            start_time = time.time()
+                            coze_api = CozeAPI(access_token, workflow_id)
+                            result = coze_api.run_workflow(parameters)
+                            elapsed_time = time.time() - start_time
+                            
+                            # 更新调用统计
+                            st.session_state.call_count += 1
+                            st.session_state.last_call_time = datetime.now()
+                            
+                            # 只缓存成功的结果
+                            if not result.get("error") and result.get("code") == 0:
+                                st.session_state.cache[cache_key] = result
+                            
+                            # 记录调用历史
+                            st.session_state.call_history[st.session_state.last_call_time.strftime("%H:%M:%S")] = {
+                                "parameters": parameters,
+                                "result_code": result.get("code", "未知"),
+                                "success": not result.get("error") and result.get("code") == 0,
+                                "elapsed_time": f"{elapsed_time:.2f}秒"
+                            }
+                    
+                    # 显示结果
+                    if result.get("error"):
+                        st.error(f"调用失败: {result.get('message')}")
+                    else:
+                        st.success("工作流调用成功！")
+                        
+                        # 显示基本信息
+                        col_info1, col_info2 = st.columns(2)
+                        
+                        with col_info1:
+                            st.metric("状态码", result.get("code", "未知"))
+                        
+                        with col_info2:
+                            st.metric("调用时间", get_current_time())
+                        
+                        # 显示状态信息
+                        if result.get("msg"):
+                            st.info(f"状态信息: {result.get('msg')}")
+                        
+                        # 显示调试链接
+                        if result.get("debug_url"):
+                            st.markdown(f"🔗 [查看调试信息]({result.get('debug_url')})")
+                        
+                        # 解析并显示工作流数据
+                        success, data = parse_workflow_response(result)
+                        
+                        if success:
+                            workflow_data = data
+                            st.subheader("工作流输出数据")
+                            
+                            # 创建标签页显示不同类型的数据
+                            tabs = st.tabs(["📊 结构化数据", "🖼️ 图片结果", "📝 文本结果", "🔗 链接结果"])
+                            
+                            with tabs[0]:
+                                st.json(workflow_data)
+                            
+                            with tabs[1]:
+                                # 显示图片相关结果
+                                if "mindmap_img" in workflow_data and workflow_data["mindmap_img"]:
+                                    st.subheader("思维导图图片")
+                                    try:
+                                        st.image(workflow_data["mindmap_img"], caption="生成的思维导图")
+                                    except:
+                                        st.text(f"图片链接: {workflow_data['mindmap_img']}")
+                            
+                            with tabs[2]:
+                                # 显示文本结果
+                                if "summary" in workflow_data:
+                                    st.subheader("摘要")
+                                    st.text_area("", workflow_data["summary"], height=150, disabled=True, key="summary_text_area")
+                                
+                                if "transcript" in workflow_data:
+                                    st.subheader("转录文本")
+                                    st.text_area("", workflow_data["transcript"], height=150, disabled=True, key="transcript_text_area")
+                            
+                            with tabs[3]:
+                                # 显示链接结果
+                                if "mindmap_url" in workflow_data and workflow_data["mindmap_url"]:
+                                    st.subheader("思维导图链接")
+                                    st.markdown(f"[🔗 查看思维导图]({workflow_data['mindmap_url']})")
+                            
+                            # 显示具体的工作流参数
+                            st.subheader("具体参数值")
+                            expected_results = {
+                                "mindmap_img": workflow_data.get("mindmap_img", "未返回"),
+                                "mindmap_url": workflow_data.get("mindmap_url", "未返回"),
+                                "status_code": workflow_data.get("status_code", "未返回"),
+                                "msg": workflow_data.get("msg", "未返回"),
+                                "summary": truncate_text(workflow_data.get("summary", "未返回")),
+                                "transcript": truncate_text(workflow_data.get("transcript", "未返回"))
+                            }
+                            
+                            for i, (key, value) in enumerate(expected_results.items()):
+                                st.text(f"{key}: {value}")
                         else:
-                            st.subheader("原始响应")
-                            st.json(result)
+                            st.error(f"解析数据失败: {data}")
+                            if isinstance(result.get("data"), str):
+                                st.subheader("原始数据")
+                                st.text_area("", result["data"], height=300, disabled=True, key="raw_data_text_area")
+                            else:
+                                st.subheader("原始响应")
+                                st.json(result)
+                
+                finally:
+                    # 无论成功还是失败，都重置处理状态
+                    st.session_state.is_processing = False
+                    # 通过JavaScript自动刷新页面以更新按钮状态
+                    st.markdown("""
+                    <script>
+                        setTimeout(function() {
+                            window.location.reload();
+                        }, 100);
+                    </script>
+                    """, unsafe_allow_html=True)
 
 # 显示调用历史
 if st.session_state.call_history and st.checkbox("显示调用历史", value=False):
@@ -265,13 +291,15 @@ if st.session_state.call_history and st.checkbox("显示调用历史", value=Fal
         "时间": [],
         "参数": [],
         "状态码": [],
-        "结果": []
+        "结果": [],
+        "耗时": []
     }
     for time_str, data in st.session_state.call_history.items():
         history_df["时间"].append(time_str)
         history_df["参数"].append(str(data["parameters"]))
         history_df["状态码"].append(data["result_code"])
         history_df["结果"].append("成功" if data.get("success", False) else "失败")
+        history_df["耗时"].append(data.get("elapsed_time", "未记录"))
     
     st.dataframe(history_df)
 
@@ -290,6 +318,7 @@ st.markdown("""
 - 两次调用之间需间隔至少 {1} 秒
 - 相同参数的成功调用会使用缓存结果，不会重复请求API
 - 可以勾选"强制刷新"选项忽略缓存
+- 调用工作流期间，提交按钮将被禁用，避免重复提交
 
 ### API 接口说明
 - **接口地址**: `https://api.coze.cn/v1/workflow/run`
