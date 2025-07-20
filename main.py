@@ -241,8 +241,8 @@ if 'result_data' not in st.session_state:
     st.session_state.result_data = None
 
 # 调用限制配置
-MAX_CALLS_PER_SESSION = 30  # 每个会话最大调用次数
-WORKFLOW_TIMEOUT = 5 * 60  # 工作流执行超时时间（秒）
+MAX_CALLS_PER_SESSION = 5  # 每个会话最大调用次数
+WORKFLOW_TIMEOUT = 20 * 60  # 工作流执行超时时间（秒）
 MAX_RETRY_COUNT = 3  # 最大重试次数
 
 # 确保输入字段和按钮在主标题下正确对齐，标题使用Bilibili粉红色
@@ -509,7 +509,7 @@ if st.session_state.result_data:
     summary_md = st.text_area(
         "AI总结", 
         value=workflow_data.get("summary", ""), 
-        height=300,
+        height=400,
         key="summary_edit"
     )
 
@@ -520,7 +520,7 @@ if st.session_state.result_data:
     transcript_md = st.text_area(
         "视频逐字稿", 
         value=workflow_data.get("transcript", ""), 
-        height=300,
+        height=400,
         key="transcript_edit"
     )
     
