@@ -34,3 +34,6 @@ config_local.py
 
 # 待办事项
 TODO.md
+
+# 忽略streamlit配置
+.streamlit/secrets.toml

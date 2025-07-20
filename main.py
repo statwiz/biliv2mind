@@ -11,6 +11,11 @@ from config import BOT_ID, COZE_API_TOKEN, API_URL, EXPECTED_PARAMS
 from utils import truncate_text, get_current_time, parse_workflow_response, parse_bilibili_url
 import streamlit.components.v1 as components
 
+# 从 .streamlit/secrets.toml 中读取配置
+BOT_ID = st.secrets["my_service"]["BOT_ID"]
+COZE_API_TOKEN = st.secrets["my_service"]["COZE_API_TOKEN"]
+API_URL = st.secrets["my_service"]["API_URL"]
+
 # 设置页面配置为亮色主题，取消wide模式
 st.set_page_config(
     page_title="",
@@ -241,7 +246,7 @@ if 'result_data' not in st.session_state:
     st.session_state.result_data = None
 
 # 调用限制配置
-MAX_CALLS_PER_SESSION = 5  # 每个会话最大调用次数
+MAX_CALLS_PER_SESSION = 50  # 每个会话最大调用次数
 WORKFLOW_TIMEOUT = 20 * 60  # 工作流执行超时时间（秒）
 MAX_RETRY_COUNT = 3  # 最大重试次数
 
@@ -311,7 +316,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # 按钮代码
-submit_button = st.button("🚀 生成思维导图", use_container_width=True, disabled=st.session_state.is_processing)
+submit_button = st.button("🚀 一建生成可编辑思维导图", use_container_width=True, disabled=st.session_state.is_processing)
 st.info(f"今日已使用次数: {st.session_state.call_count}/{MAX_CALLS_PER_SESSION} (每日限额)")
 
 # 检查调用限制
@@ -487,7 +492,7 @@ if st.session_state.result_data:
     
     # 思维导图链接
     if "mindmap_url" in workflow_data and workflow_data["mindmap_url"]:
-        st.markdown(f'<a href="{workflow_data["mindmap_url"]}" target="_blank" style="background-color: #FB7299; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px; display: block; width: 100%; text-align: center; margin-top: 20px; margin-bottom: 20px;"><span>🔗 在线编辑思维导图</span></a>', unsafe_allow_html=True)
+        st.markdown(f'<a href="{workflow_data["mindmap_url"]}" target="_blank" style="background-color: #FB7299; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px; display: block; width: 100%; text-align: center; margin-top: 20px; margin-bottom: 20px;"><span>🔗 点击可在线编辑思维导图</span></a>', unsafe_allow_html=True)
     
 
 
