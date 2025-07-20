@@ -27,8 +27,7 @@ if 'is_processing' not in st.session_state:
 
 # 调用限制配置
 MAX_CALLS_PER_SESSION = 10  # 每个会话最大调用次数
-COOLDOWN_SECONDS = 5  # 调用冷却时间（秒）
-WORKFLOW_TIMEOUT = 60  # 工作流执行超时时间（秒）
+WORKFLOW_TIMEOUT = 5 * 60  # 工作流执行超时时间（秒）
 
 # 标题
 st.title("🤖 扣子工作流调用器")
@@ -121,13 +120,6 @@ def check_call_limits():
     # 检查调用次数限制
     if st.session_state.call_count >= MAX_CALLS_PER_SESSION:
         return False, f"已达到最大调用次数限制（{MAX_CALLS_PER_SESSION}次）。请重置计数或稍后再试。"
-    
-    # 检查冷却时间
-    if st.session_state.last_call_time:
-        elapsed = datetime.now() - st.session_state.last_call_time
-        if elapsed.total_seconds() < COOLDOWN_SECONDS:
-            remaining = COOLDOWN_SECONDS - elapsed.total_seconds()
-            return False, f"请等待 {remaining:.1f} 秒后再次调用。"
     
     return True, ""
 
@@ -315,7 +307,6 @@ st.markdown("""
 
 ### 调用限制说明
 - 每个会话最多调用 {0} 次
-- 两次调用之间需间隔至少 {1} 秒
 - 相同参数的成功调用会使用缓存结果，不会重复请求API
 - 可以勾选"强制刷新"选项忽略缓存
 - 调用工作流期间，提交按钮将被禁用，避免重复提交
@@ -330,4 +321,4 @@ st.markdown("""
 - 确保工作流已经发布
 - 访问令牌需要开启工作流 run 权限
 - 不支持包含消息节点、流式输出节点、问答节点的工作流
-""".format(MAX_CALLS_PER_SESSION, COOLDOWN_SECONDS)) 
+""".format(MAX_CALLS_PER_SESSION)) 
