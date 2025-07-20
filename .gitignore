@@ -1,0 +1,36 @@
+# 环境变量文件
+.env
+.env.*
+!.env.example
+
+# Python缓存文件
+__pycache__/
+*.py[cod]
+*$py.class
+
+# 虚拟环境
+venv/
+env/
+ENV/
+
+# IDE配置
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 日志文件
+*.log
+
+# 本地配置
+config_local.py 
+
+#cursor
+.cursor/
+
+# 待办事项
+TODO.md
