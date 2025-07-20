@@ -269,7 +269,7 @@ components.html("""
         font-size: 1.2rem;
         font-weight: bold;
     ">
-        主要用于知识分享类视频
+        致力于知识分享类视频的思维导图生成
     </div>
 """, height=60)
 # 在主内容下放置输入和状态信息
@@ -312,7 +312,7 @@ st.markdown("""
 
 # 按钮代码
 submit_button = st.button("🚀 生成思维导图", use_container_width=True, disabled=st.session_state.is_processing)
-st.info(f"今日已调用次数: {st.session_state.call_count}/{MAX_CALLS_PER_SESSION} (每日限额)")
+st.info(f"今日已使用次数: {st.session_state.call_count}/{MAX_CALLS_PER_SESSION} (每日限额)")
 
 # 检查调用限制
 def check_call_limits():
