@@ -9,6 +9,7 @@ import hashlib
 from coze_api import CozeAPI
 from config import BOT_ID, COZE_API_TOKEN, API_URL, EXPECTED_PARAMS
 from utils import truncate_text, get_current_time, parse_workflow_response, parse_bilibili_url
+import streamlit.components.v1 as components
 
 # 设置页面配置为亮色主题，取消wide模式
 st.set_page_config(
@@ -235,25 +236,48 @@ WORKFLOW_TIMEOUT = 5 * 60  # 工作流执行超时时间（秒）
 MAX_RETRY_COUNT = 3  # 最大重试次数
 
 # 确保输入字段和按钮在主标题下正确对齐，标题使用Bilibili粉红色
-st.markdown('<div class="main-header"><h1 style="color: var(--bilibili-pink);">B站视频思维导图生成器</h1></div>', unsafe_allow_html=True)
+#st.markdown('<div class="main-header"><h1 style="color: #FB7299 !important;">B站视频思维导图生成器</h1></div>', unsafe_allow_html=True)
 
+components.html("""
+    <h1 style=" 
+        text-align: center;
+        color: #FB7299; font-size: 36px;
+    ">
+        B站视频脚本转思维导图
+    </h1>
+""", height=85)
+
+# 添加副标题框
+# st.markdown('<div style="background-color: #F1F2F3; border-radius: 10px; padding: 10px; text-align: center; color: #FB7299; font-size: 1.2rem;">主要用于知识分享类视频</div>', unsafe_allow_html=True)
+components.html("""
+    <div style="
+        background-color: #F1F2F3;
+        border-radius: 10px;
+        padding: 10px;
+        text-align: center;
+        color: #FB7299;
+        font-size: 1.2rem;
+        font-weight: bold;
+    ">
+        主要用于知识分享类视频
+    </div>
+""", height=60)
 # 在主内容下放置输入和状态信息
-st.markdown('<div class="content-card">', unsafe_allow_html=True)
+# st.markdown('<div class="content-card">', unsafe_allow_html=True)
+
 
 # 使用两列布局
 col1, col2 = st.columns(2)
 
 with col1:
-    video_url = st.text_input("B站视频链接", value="https://www.bilibili.com/video/BV11FutzbEAT/", help="输入B站视频链接")
+    video_url = st.text_input("视频链接", value="https://www.bilibili.com/video/BV1S84y1a78h/?spm_id_from=333.337.search-card.all.click&vd_source=1d3c4c24a011886d227d3e54fe31720b", help="输入B站视频链接")
 
 with col2:
-    access_token = st.text_input("API访问令牌", value=COZE_API_TOKEN, type="password", help="输入你的API访问令牌")
+    access_token = st.text_input("访问令牌", value=COZE_API_TOKEN, type="password", help="输入你的API访问令牌")
 
 # 按钮和调用次数信息
 submit_button = st.button("🚀 生成思维导图", use_container_width=True, disabled=st.session_state.is_processing)
 st.info(f"今日已调用次数: {st.session_state.call_count}/{MAX_CALLS_PER_SESSION} (每日限额)")
-
-st.markdown('</div>', unsafe_allow_html=True)
 
 # 检查调用限制
 def check_call_limits():
@@ -278,21 +302,17 @@ def check_cache(parameters):
 def try_run_workflow(coze_api, parameters, max_retries=MAX_RETRY_COUNT):
     retry_count = 0
     last_error = None
-    status_placeholder = st.empty()
     
     while retry_count < max_retries:
         try:
-            status_placeholder.info(f"正在尝试调用工作流... (尝试 {retry_count + 1}/{max_retries})")
             result = coze_api.run_workflow(parameters)
             
             # 检查是否成功
             if not result.get("error") and result.get("code") == 0:
-                status_placeholder.success(f"调用成功！(尝试 {retry_count + 1}/{max_retries})")
                 return result, True
             
             # 记录错误
             last_error = result.get("message", "未知错误")
-            status_placeholder.warning(f"调用失败 ({retry_count + 1}/{max_retries}): {last_error}")
             
             # 增加重试计数
             retry_count += 1
@@ -304,7 +324,6 @@ def try_run_workflow(coze_api, parameters, max_retries=MAX_RETRY_COUNT):
         except Exception as e:
             # 记录异常
             last_error = str(e)
-            status_placeholder.warning(f"调用异常 ({retry_count + 1}/{max_retries}): {last_error}")
             
             # 增加重试计数
             retry_count += 1
@@ -314,7 +333,6 @@ def try_run_workflow(coze_api, parameters, max_retries=MAX_RETRY_COUNT):
                 time.sleep(3)  # 等待3秒再重试
     
     # 如果所有重试都失败，返回最后一个错误
-    status_placeholder.error(f"所有尝试都失败，请稍后再试")
     return {"error": True, "message": f"所有尝试都失败: {last_error}"}, False
 
 # 处理工作流调用
@@ -415,37 +433,74 @@ if submit_button:
 
 # 显示结果区域
 if st.session_state.result_data:
-    st.markdown("---")
-    
+    # 确保没有多余的线条或框
+    # 检查并移除不必要的 st.markdown 或其他元素
+
+    # 删除多余的分隔线
+    # st.markdown('---')  # 如果有多余的分隔线，可以注释掉或删除
+
+    # 确保没有多余的空白框
+    # 检查并移除不必要的 st.empty() 或其他空白元素
+
+    # 删除多余的空白元素
+    # 确保没有多余的 st.empty() 或其他空白元素
+
     # 使用容器和CSS确保所有列高度一致
-    st.markdown('<div class="content-card">', unsafe_allow_html=True)
+    # st.markdown('<div class="content-card">', unsafe_allow_html=True)
     
     workflow_data = st.session_state.result_data
     
     # 思维导图链接
     if "mindmap_url" in workflow_data and workflow_data["mindmap_url"]:
-        st.markdown(f'<a href="{workflow_data["mindmap_url"]}" target="_blank" style="background-color: #FB7299; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px; display: inline-block; margin-top: 10px;"><span>🔗 在线编辑思维导图</span></a>', unsafe_allow_html=True)
+        st.markdown(f'<a href="{workflow_data["mindmap_url"]}" target="_blank" style="background-color: #FB7299; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px; display: block; width: 100%; text-align: center; margin-top: 10px;"><span>🔗 在线编辑思维导图</span></a>', unsafe_allow_html=True)
     
+
+
+
+
     # 思维导图展示区
-    st.markdown('<h3 style="color: #23ADE5;">思维导图</h3>', unsafe_allow_html=True)
     if "mindmap_img" in workflow_data and workflow_data["mindmap_img"]:
         try:
-            st.image(workflow_data["mindmap_img"], caption="生成的思维导图", use_column_width=True)
+            st.markdown(f"""
+            <div style="position: relative; display: inline-block; width: 100%;">
+                <a href="{workflow_data["mindmap_img"]}" target="_blank" style="position: absolute; top: 10px; right: 0; color: #23ADE5; padding: 3px 8px; text-decoration: none; font-size: 0.8rem;">🔍 查看大图</a>
+                <img src="{workflow_data["mindmap_img"]}" style="width: 100%;" alt="生成的思维导图">
+            </div>
+            """, unsafe_allow_html=True)
         except:
             st.error("无法显示思维导图图片")
     
-    # AI总结预览区
-    st.markdown('<h3 style="color: #23ADE5;">AI总结预览</h3>', unsafe_allow_html=True)
-    st.markdown(workflow_data.get("summary", ""))
+    # AI总结编辑区
+    summary_md = st.text_area(
+        "AI总结", 
+        value=workflow_data.get("summary", ""), 
+        height=600,
+        key="summary_edit"
+    )
+
+    # 显示预览
+    # st.markdown(summary_md, unsafe_allow_html=True)
     
     # 逐字稿编辑区
-    st.markdown('<h3 style="color: #23ADE5;">逐字稿编辑区</h3>', unsafe_allow_html=True)
-    st.text_area(
-        "逐字稿", 
+    transcript_md = st.text_area(
+        "视频逐字稿", 
         value=workflow_data.get("transcript", ""), 
         height=600,
         key="transcript_edit"
     )
     
-    st.markdown('</div>', unsafe_allow_html=True)
 
+    # CSS 样式
+    st.markdown("""
+        <style>
+        .stTextArea textarea {
+            background-color: #F1F2F3;
+            color: #FB7299;
+            border-radius: 10px;
+            border: 1px solid #ddd;
+            padding: 0.5rem;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+    
+    
