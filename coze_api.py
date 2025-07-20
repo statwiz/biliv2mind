@@ -38,7 +38,7 @@ class CozeAPI:
             payload["parameters"] = parameters
         
         try:
-            response = requests.post(self.api_url, headers=headers, json=payload, timeout=30)
+            response = requests.post(self.api_url, headers=headers, json=payload, timeout=1200)
             
             if response.status_code == 200:
                 return response.json()

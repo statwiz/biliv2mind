@@ -8,14 +8,109 @@ from pathlib import Path
 import hashlib
 from coze_api import CozeAPI
 from config import BOT_ID, COZE_API_TOKEN, API_URL, EXPECTED_PARAMS
-from utils import truncate_text, get_current_time, parse_workflow_response
+from utils import truncate_text, get_current_time, parse_workflow_response, parse_bilibili_url
 
 # 页面配置
 st.set_page_config(
-    page_title="扣子工作流调用器",
+    page_title="B站视频思维导图生成器",
     page_icon="🤖",
     layout="wide"
 )
+
+# 自定义CSS样式 - B站风格
+st.markdown("""
+<style>
+    /* B站风格配色 */
+    :root {
+        --bilibili-pink: #FB7299;
+        --bilibili-blue: #23ADE5;
+        --bilibili-light-blue: #B3D4FC;
+        --bilibili-white: #FFFFFF;
+        --bilibili-gray: #F1F2F3;
+        --bilibili-text: #212121;
+    }
+    
+    /* 修改整体背景色 */
+    .stApp {
+        background: linear-gradient(to right, var(--bilibili-light-blue), var(--bilibili-white));
+    }
+    
+    /* 标题样式 */
+    h1, h2, h3 {
+        color: var(--bilibili-text) !important;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    
+    /* 按钮样式 */
+    .stButton > button {
+        background: linear-gradient(to right, var(--bilibili-pink), #e45c84);
+        color: white;
+        border: none;
+        border-radius: 20px;
+        padding: 0.5rem 1.5rem;
+        font-weight: bold;
+        transition: background 0.3s ease;
+    }
+    
+    .stButton > button:hover {
+        background: linear-gradient(to right, #e45c84, var(--bilibili-pink));
+    }
+    
+    /* 信息框样式 */
+    .stAlert {
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    /* 输入框样式 */
+    .stTextInput > div > div > input {
+        border-radius: 20px;
+        border: 1px solid #ddd;
+        padding: 0.5rem;
+    }
+    
+    /* 文本区域样式 */
+    .stTextArea textarea {
+        border-radius: 20px;
+        border: 1px solid #ddd;
+        padding: 0.5rem;
+    }
+    
+    /* 分隔线样式 */
+    hr {
+        border-top: 1px solid var(--bilibili-light-blue);
+    }
+    
+    /* 标题栏样式 */
+    .main-header {
+        background: var(--bilibili-blue);
+        padding: 1.5rem;
+        border-radius: 12px;
+        color: white;
+        text-align: center;
+        margin-bottom: 1.5rem;
+        font-size: 1.5rem;
+    }
+    
+    /* 卡片样式 */
+    .content-card {
+        background-color: var(--bilibili-gray);
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    
+    /* 调整列宽度 */
+    .equal-width-cols {
+        display: flex;
+    }
+    .equal-width-cols > div {
+        flex: 1;
+        padding: 15px;
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # 持久化存储目录
 STORAGE_DIR = Path("./storage")
@@ -26,8 +121,19 @@ USAGE_FILE = STORAGE_DIR / "usage_data.pkl"
 def get_user_identifier():
     # 获取客户端IP地址
     try:
-        # 尝试从请求头中获取客户端IP
-        client_ip = st.query_params.get("client_ip", ["unknown"])[0]
+        # 兼容不同版本的Streamlit
+        client_ip = "unknown"
+        if hasattr(st, "query_params"):
+            try:
+                client_ip = st.query_params.get("client_ip", ["unknown"])[0]
+            except:
+                pass
+        elif hasattr(st, "experimental_get_query_params"):
+            try:
+                params = st.experimental_get_query_params()
+                client_ip = params.get("client_ip", ["unknown"])[0]
+            except:
+                pass
     except:
         client_ip = "unknown"
     
@@ -102,105 +208,41 @@ if 'cache' not in st.session_state:
     st.session_state.cache = {}
 if 'is_processing' not in st.session_state:
     st.session_state.is_processing = False
+if 'result_data' not in st.session_state:
+    st.session_state.result_data = None
 
 # 调用限制配置
-MAX_CALLS_PER_SESSION =30  # 每个会话最大调用次数
+MAX_CALLS_PER_SESSION = 30  # 每个会话最大调用次数
 WORKFLOW_TIMEOUT = 5 * 60  # 工作流执行超时时间（秒）
+MAX_RETRY_COUNT = 3  # 最大重试次数
 
-# 标题
-st.title("🤖 扣子工作流调用器")
-st.markdown("---")
+# 标题 - 使用B站风格
+st.markdown('<div class="main-header"><h1>📺 B站视频思维导图生成器</h1></div>', unsafe_allow_html=True)
 
-# 侧边栏配置
-with st.sidebar:
-    st.header("配置信息")
-    
-    # 工作流配置
-    workflow_id = st.text_input("工作流 ID", value=BOT_ID, help="你的工作流 ID")
-    access_token = st.text_input("个人访问令牌", value=COZE_API_TOKEN, type="password", help="你的个人访问令牌")
-    
-    # API 配置
-    api_url = API_URL
-    
-    st.markdown("---")
-    st.markdown("### 工作流返回参数")
-    for param in EXPECTED_PARAMS:
-        st.text(f"• {param}")
-    
-    # 显示调用统计信息
-    st.markdown("---")
-    st.markdown("### 调用统计")
-    st.text(f"本次会话已调用次数: {st.session_state.call_count}/{MAX_CALLS_PER_SESSION}")
-    if st.session_state.last_call_time:
-        st.text(f"上次调用时间: {st.session_state.last_call_time.strftime('%H:%M:%S')}")
-    st.text(f"缓存条目数: {len(st.session_state.cache)}")
-    
-    # 添加管理按钮
-    col1, col2 = st.columns(2)
-    with col1:
-        if st.button("重置调用计数", key="reset_count", disabled=st.session_state.is_processing):
-            # 只有在开发环境或者管理员模式下才允许重置
-            if os.environ.get("STREAMLIT_ENV") == "development" or st.session_state.get("is_admin", False):
-                st.session_state.call_count = 0
-                st.session_state.last_call_time = None
-                st.session_state.call_history = {}
-                # 更新持久化存储
-                update_user_usage(user_id, call_count=0, last_call_time=None, call_history={})
-                st.success("调用计数已重置！")
-                st.rerun()
-            else:
-                st.error("权限不足，无法重置调用计数")
-    
-    with col2:
-        if st.button("清除结果缓存", key="clear_cache", disabled=st.session_state.is_processing):
-            st.session_state.cache = {}
-            st.success("缓存已清除！")
-            st.rerun()
+# 输入区域 - 使用卡片样式
+st.markdown('<div class="content-card">', unsafe_allow_html=True)
+# 使用更合理的列宽比例
+col_url, col_token, col_button = st.columns([2, 1.5, 1])
 
-# 主要内容区域
-col1, col2 = st.columns([1, 1])
+with col_url:
+    video_url = st.text_input("B站视频链接", value="https://www.bilibili.com/video/BV11FutzbEAT/", help="输入B站视频链接")
 
-with col1:
-    st.header("📤 输入参数")
-    
-    # 动态参数输入
-    st.subheader("工作流参数")
-    parameters = {}
-    
-    # 添加参数的表单
-    with st.form("parameters_form"):
-        st.write("添加工作流所需的参数：")
-        
-        # 参数输入区域
-        param_count = st.number_input("参数数量", min_value=0, max_value=10, value=1)
-        
-        for i in range(param_count):
-            col_key, col_value = st.columns(2)
-            with col_key:
-                key = st.text_input(f"参数名 {i+1}", key=f"key_{i}", value="url" if i==0 else "")
-            with col_value:
-                value = st.text_input(f"参数值 {i+1}", key=f"value_{i}", value="https://www.bilibili.com/video/BV1yp4y1r7hG/" if i==0 else "")
-            
-            if key and value:
-                parameters[key] = value
-        
-        # 显示当前处理状态
-        if st.session_state.is_processing:
-            st.warning("⏳ 正在处理工作流请求，请耐心等待...")
-            
-        submit_button = st.form_submit_button("🚀 调用工作流", use_container_width=True, disabled=st.session_state.is_processing)
+with col_token:
+    access_token = st.text_input("API访问令牌", value=COZE_API_TOKEN, type="password", help="输入你的API访问令牌")
 
-with col2:
-    st.header("📥 返回结果")
-    
-    # 结果显示区域
-    result_placeholder = st.empty()
+with col_button:
+    st.write("")  # 添加一些空间使按钮对齐
+    submit_button = st.button("🚀 生成思维导图", use_container_width=True, disabled=st.session_state.is_processing)
+
+# 显示调用次数统计
+st.info(f"今日已调用次数: {st.session_state.call_count}/{MAX_CALLS_PER_SESSION} (每日限额)")
+st.markdown('</div>', unsafe_allow_html=True)
 
 # 检查调用限制
 def check_call_limits():
     # 检查调用次数限制
     if st.session_state.call_count >= MAX_CALLS_PER_SESSION:
-        return False, f"已达到最大调用次数限制（{MAX_CALLS_PER_SESSION}次）。请联系管理员重置或等待明天再试。"
+        return False, f"已达到最大调用次数限制（{MAX_CALLS_PER_SESSION}次）。请明天再试。"
     
     return True, ""
 
@@ -215,139 +257,132 @@ def check_cache(parameters):
     
     return False, None, cache_key
 
+# 尝试调用工作流，最多重试指定次数
+def try_run_workflow(coze_api, parameters, max_retries=MAX_RETRY_COUNT):
+    retry_count = 0
+    last_error = None
+    status_placeholder = st.empty()
+    
+    while retry_count < max_retries:
+        try:
+            status_placeholder.info(f"正在尝试调用工作流... (尝试 {retry_count + 1}/{max_retries})")
+            result = coze_api.run_workflow(parameters)
+            
+            # 检查是否成功
+            if not result.get("error") and result.get("code") == 0:
+                status_placeholder.success(f"调用成功！(尝试 {retry_count + 1}/{max_retries})")
+                return result, True
+            
+            # 记录错误
+            last_error = result.get("message", "未知错误")
+            status_placeholder.warning(f"调用失败 ({retry_count + 1}/{max_retries}): {last_error}")
+            
+            # 增加重试计数
+            retry_count += 1
+            
+            # 如果还有重试次数，等待一段时间再重试
+            if retry_count < max_retries:
+                time.sleep(3)  # 等待3秒再重试
+        
+        except Exception as e:
+            # 记录异常
+            last_error = str(e)
+            status_placeholder.warning(f"调用异常 ({retry_count + 1}/{max_retries}): {last_error}")
+            
+            # 增加重试计数
+            retry_count += 1
+            
+            # 如果还有重试次数，等待一段时间再重试
+            if retry_count < max_retries:
+                time.sleep(3)  # 等待3秒再重试
+    
+    # 如果所有重试都失败，返回最后一个错误
+    status_placeholder.error(f"所有尝试都失败，请稍后再试")
+    return {"error": True, "message": f"所有尝试都失败: {last_error}"}, False
+
 # 处理工作流调用
 if submit_button:
-    if not workflow_id or not access_token:
-        st.error("请填写工作流 ID 和访问令牌！")
+    if not video_url or not access_token:
+        st.error("请填写B站视频链接和API访问令牌！")
     else:
-        # 检查调用限制
-        can_call, message = check_call_limits()
+        # 解析B站视频链接
+        is_valid_url, parsed_url = parse_bilibili_url(video_url)
         
-        if not can_call:
-            st.error(message)
+        if not is_valid_url:
+            st.error(parsed_url)  # 显示错误信息
         else:
-            # 设置处理状态为真，禁用按钮
-            st.session_state.is_processing = True
+            # 检查调用限制
+            can_call, message = check_call_limits()
             
-            # 检查缓存
-            cached, cached_result, cache_key = check_cache(parameters)
-            
-            with result_placeholder.container():
+            if not can_call:
+                st.error(message)
+            else:
+                # 设置处理状态为真，禁用按钮
+                st.session_state.is_processing = True
+                
+                # 准备参数
+                parameters = {"url": parsed_url}
+                
+                # 检查缓存
+                cached, cached_result, cache_key = check_cache(parameters)
+                
                 try:
                     if cached:
                         st.info("使用缓存结果（避免重复调用）")
                         result = cached_result
                     else:
                         # 显示加载状态
-                        with st.spinner("正在调用工作流..."):
+                        with st.spinner("正在分析视频并生成思维导图..."):
                             start_time = time.time()
-                            coze_api = CozeAPI(access_token, workflow_id)
-                            result = coze_api.run_workflow(parameters)
+                            coze_api = CozeAPI(access_token, BOT_ID)
+                            
+                            # 尝试调用工作流，最多重试指定次数
+                            result, success = try_run_workflow(coze_api, parameters, MAX_RETRY_COUNT)
+                            
                             elapsed_time = time.time() - start_time
                             
-                            # 更新调用统计
-                            st.session_state.call_count += 1
-                            st.session_state.last_call_time = datetime.now()
-                            
-                            # 更新持久化存储
-                            update_user_usage(
-                                user_id, 
-                                call_count=st.session_state.call_count,
-                                last_call_time=st.session_state.last_call_time
-                            )
-                            
-                            # 只缓存成功的结果
-                            if not result.get("error") and result.get("code") == 0:
-                                st.session_state.cache[cache_key] = result
-                            
-                            # 记录调用历史
-                            call_time = st.session_state.last_call_time.strftime("%H:%M:%S")
-                            st.session_state.call_history[call_time] = {
-                                "parameters": parameters,
-                                "result_code": result.get("code", "未知"),
-                                "success": not result.get("error") and result.get("code") == 0,
-                                "elapsed_time": f"{elapsed_time:.2f}秒"
-                            }
-                            
-                            # 更新持久化存储中的调用历史
-                            user_usage = get_user_usage(user_id)
-                            user_usage["call_history"][call_time] = st.session_state.call_history[call_time]
-                            update_user_usage(user_id, call_history=user_usage["call_history"])
+                            # 只有在成功调用时才更新调用统计
+                            if success:
+                                # 更新调用统计
+                                st.session_state.call_count += 1
+                                st.session_state.last_call_time = datetime.now()
+                                
+                                # 更新持久化存储
+                                update_user_usage(
+                                    user_id, 
+                                    call_count=st.session_state.call_count,
+                                    last_call_time=st.session_state.last_call_time
+                                )
+                                
+                                # 只缓存成功的结果
+                                if not result.get("error") and result.get("code") == 0:
+                                    st.session_state.cache[cache_key] = result
+                                
+                                # 记录调用历史
+                                call_time = st.session_state.last_call_time.strftime("%H:%M:%S")
+                                st.session_state.call_history[call_time] = {
+                                    "parameters": parameters,
+                                    "result_code": result.get("code", "未知"),
+                                    "success": not result.get("error") and result.get("code") == 0,
+                                    "elapsed_time": f"{elapsed_time:.2f}秒"
+                                }
+                                
+                                # 更新持久化存储中的调用历史
+                                user_usage = get_user_usage(user_id)
+                                user_usage["call_history"][call_time] = st.session_state.call_history[call_time]
+                                update_user_usage(user_id, call_history=user_usage["call_history"])
                     
                     # 显示结果
                     if result.get("error"):
                         st.error(f"调用失败: {result.get('message')}")
                     else:
-                        st.success("工作流调用成功！")
-                        
-                        # 显示基本信息
-                        col_info1, col_info2 = st.columns(2)
-                        
-                        with col_info1:
-                            st.metric("状态码", result.get("code", "未知"))
-                        
-                        with col_info2:
-                            st.metric("调用时间", get_current_time())
-                        
-                        # 显示状态信息
-                        if result.get("msg"):
-                            st.info(f"状态信息: {result.get('msg')}")
-                        
-                        # 显示调试链接
-                        if result.get("debug_url"):
-                            st.markdown(f"🔗 [查看调试信息]({result.get('debug_url')})")
-                        
                         # 解析并显示工作流数据
                         success, data = parse_workflow_response(result)
                         
                         if success:
                             workflow_data = data
-                            st.subheader("工作流输出数据")
-                            
-                            # 创建标签页显示不同类型的数据
-                            tabs = st.tabs(["📊 结构化数据", "🖼️ 图片结果", "📝 文本结果", "🔗 链接结果"])
-                            
-                            with tabs[0]:
-                                st.json(workflow_data)
-                            
-                            with tabs[1]:
-                                # 显示图片相关结果
-                                if "mindmap_img" in workflow_data and workflow_data["mindmap_img"]:
-                                    st.subheader("思维导图图片")
-                                    try:
-                                        st.image(workflow_data["mindmap_img"], caption="生成的思维导图")
-                                    except:
-                                        st.text(f"图片链接: {workflow_data['mindmap_img']}")
-                            
-                            with tabs[2]:
-                                # 显示文本结果
-                                if "summary" in workflow_data:
-                                    st.subheader("摘要")
-                                    st.text_area("", workflow_data["summary"], height=150, disabled=True, key="summary_text_area")
-                                
-                                if "transcript" in workflow_data:
-                                    st.subheader("转录文本")
-                                    st.text_area("", workflow_data["transcript"], height=150, disabled=True, key="transcript_text_area")
-                            
-                            with tabs[3]:
-                                # 显示链接结果
-                                if "mindmap_url" in workflow_data and workflow_data["mindmap_url"]:
-                                    st.subheader("思维导图链接")
-                                    st.markdown(f"[🔗 查看思维导图]({workflow_data['mindmap_url']})")
-                            
-                            # 显示具体的工作流参数
-                            st.subheader("具体参数值")
-                            expected_results = {
-                                "mindmap_img": workflow_data.get("mindmap_img", "未返回"),
-                                "mindmap_url": workflow_data.get("mindmap_url", "未返回"),
-                                "status_code": workflow_data.get("status_code", "未返回"),
-                                "msg": workflow_data.get("msg", "未返回"),
-                                "summary": truncate_text(workflow_data.get("summary", "未返回")),
-                                "transcript": truncate_text(workflow_data.get("transcript", "未返回"))
-                            }
-                            
-                            for i, (key, value) in enumerate(expected_results.items()):
-                                st.text(f"{key}: {value}")
+                            st.session_state.result_data = workflow_data
+                            st.success("视频分析完成！")
                         else:
                             st.error(f"解析数据失败: {data}")
                             if isinstance(result.get("data"), str):
@@ -360,59 +395,55 @@ if submit_button:
                 finally:
                     # 无论成功还是失败，都重置处理状态
                     st.session_state.is_processing = False
-                    # 通过JavaScript自动刷新页面以更新按钮状态
-                    st.markdown("""
-                    <script>
-                        setTimeout(function() {
-                            window.location.reload();
-                        }, 100);
-                    </script>
-                    """, unsafe_allow_html=True)
 
-# 显示调用历史
-if st.session_state.call_history and st.checkbox("显示调用历史", value=False):
+# 显示结果区域
+if st.session_state.result_data:
     st.markdown("---")
-    st.subheader("调用历史")
-    history_df = {
-        "时间": [],
-        "参数": [],
-        "状态码": [],
-        "结果": [],
-        "耗时": []
-    }
-    for time_str, data in st.session_state.call_history.items():
-        history_df["时间"].append(time_str)
-        history_df["参数"].append(str(data["parameters"]))
-        history_df["状态码"].append(data["result_code"])
-        history_df["结果"].append("成功" if data.get("success", False) else "失败")
-        history_df["耗时"].append(data.get("elapsed_time", "未记录"))
     
-    st.dataframe(history_df)
+    # 使用容器和CSS确保所有列高度一致
+    st.markdown('<div class="content-card">', unsafe_allow_html=True)
+    
+    # 使用更合理的列宽比例
+    col1, col2, col3, col4 = st.columns([1, 1, 1, 1.2])
+    
+    workflow_data = st.session_state.result_data
+    
+    # 第一列：逐字稿编辑区
+    with col1:
+        st.markdown('<h3 style="color: #23ADE5;">逐字稿编辑区</h3>', unsafe_allow_html=True)
+        transcript = st.text_area(
+            "逐字稿", 
+            value=workflow_data.get("transcript", ""), 
+            height=600,
+            key="transcript_edit"
+        )
+    
+    # 第二列：AI总结 markdown可编辑
+    with col2:
+        st.markdown('<h3 style="color: #23ADE5;">AI总结编辑区</h3>', unsafe_allow_html=True)
+        summary_md = st.text_area(
+            "AI总结 (Markdown格式)", 
+            value=workflow_data.get("summary", ""), 
+            height=600,
+            key="summary_edit"
+        )
+    
+    # 第三列：AI总结 markdown预览区
+    with col3:
+        st.markdown('<h3 style="color: #23ADE5;">AI总结预览</h3>', unsafe_allow_html=True)
+        st.markdown(summary_md)
+    
+    # 第四列：思维导图展示区
+    with col4:
+        st.markdown('<h3 style="color: #23ADE5;">思维导图</h3>', unsafe_allow_html=True)
+        if "mindmap_img" in workflow_data and workflow_data["mindmap_img"]:
+            try:
+                st.image(workflow_data["mindmap_img"], caption="生成的思维导图", use_column_width=True)
+            except:
+                st.error("无法显示思维导图图片")
+        
+        if "mindmap_url" in workflow_data and workflow_data["mindmap_url"]:
+            st.markdown(f'<a href="{workflow_data["mindmap_url"]}" target="_blank" style="background-color: #FB7299; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px; display: inline-block; margin-top: 10px;"><span>🔗 在线编辑思维导图</span></a>', unsafe_allow_html=True)
+    
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# 页面底部信息
-st.markdown("---")
-st.markdown("""
-### 使用说明
-
-1. **配置信息**：在左侧侧边栏填入你的工作流 ID 和个人访问令牌
-2. **输入参数**：根据你的工作流需要，添加相应的输入参数
-3. **调用工作流**：点击"调用工作流"按钮执行
-4. **查看结果**：在右侧查看工作流的返回结果
-
-### 调用限制说明
-- 每个用户每天最多调用 {0} 次
-- 相同参数的成功调用会使用缓存结果，不会重复请求API
-- 调用工作流期间，提交按钮将被禁用，避免重复提交
-- 调用限制基于用户标识，刷新页面不会重置限制
-
-### API 接口说明
-- **接口地址**: `https://api.coze.cn/v1/workflow/run`
-- **请求方式**: POST
-- **认证方式**: Bearer Token
-- **内容类型**: application/json
-
-### 注意事项
-- 确保工作流已经发布
-- 访问令牌需要开启工作流 run 权限
-- 不支持包含消息节点、流式输出节点、问答节点的工作流
-""".format(MAX_CALLS_PER_SESSION)) 
