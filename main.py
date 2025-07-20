@@ -10,11 +10,11 @@ from coze_api import CozeAPI
 from config import BOT_ID, COZE_API_TOKEN, API_URL, EXPECTED_PARAMS
 from utils import truncate_text, get_current_time, parse_workflow_response, parse_bilibili_url
 
-# 页面配置
+# 设置页面配置为亮色主题，取消wide模式
 st.set_page_config(
-    page_title="B站视频思维导图生成器",
-    page_icon="🤖",
-    layout="wide"
+    page_title="",
+    layout="centered",
+    initial_sidebar_state="expanded"
 )
 
 # 自定义CSS样式 - B站风格
@@ -30,9 +30,9 @@ st.markdown("""
         --bilibili-text: #212121;
     }
     
-    /* 修改整体背景色 */
+    /* 修改整体背景色为白色 */
     .stApp {
-        background: linear-gradient(to right, var(--bilibili-light-blue), var(--bilibili-white));
+        background-color: var(--bilibili-white);
     }
     
     /* 标题样式 */
@@ -62,11 +62,18 @@ st.markdown("""
         box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     }
     
-    /* 输入框样式 */
-    .stTextInput > div > div > input {
-        border-radius: 20px;
-        border: 1px solid #ddd;
-        padding: 0.5rem;
+    /* 移除输入框容器的黑色背景和边框 */
+    .stTextInput > div {
+        background-color: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
+    }
+    
+    /* 移除输入框的黑色背景和边框 */
+    .stTextInput > div > div {
+        background-color: transparent !important;
+        border: none !important;
+        box-shadow: none !important;
     }
     
     /* 文本区域样式 */
@@ -83,10 +90,7 @@ st.markdown("""
     
     /* 标题栏样式 */
     .main-header {
-        background: var(--bilibili-blue);
-        padding: 1.5rem;
-        border-radius: 12px;
-        color: white;
+        color: var(--bilibili-pink);
         text-align: center;
         margin-bottom: 1.5rem;
         font-size: 1.5rem;
@@ -108,6 +112,20 @@ st.markdown("""
     .equal-width-cols > div {
         flex: 1;
         padding: 15px;
+    }
+    
+    /* 其他文本颜色为黑色 */
+    h1, h2, h3, p, div {
+        color: var(--bilibili-text) !important;
+    }
+    
+    /* 输入框样式 */
+    .stTextInput > div > div > input {
+        background-color: var(--bilibili-white) !important;
+        color: var(--bilibili-pink) !important;
+        border-radius: 20px;
+        border: 1px solid #ddd;
+        padding: 0.5rem;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -216,26 +234,25 @@ MAX_CALLS_PER_SESSION = 30  # 每个会话最大调用次数
 WORKFLOW_TIMEOUT = 5 * 60  # 工作流执行超时时间（秒）
 MAX_RETRY_COUNT = 3  # 最大重试次数
 
-# 标题 - 使用B站风格
-st.markdown('<div class="main-header"><h1>📺 B站视频思维导图生成器</h1></div>', unsafe_allow_html=True)
+# 确保输入字段和按钮在主标题下正确对齐，标题使用Bilibili粉红色
+st.markdown('<div class="main-header"><h1 style="color: var(--bilibili-pink);">B站视频思维导图生成器</h1></div>', unsafe_allow_html=True)
 
-# 输入区域 - 使用卡片样式
+# 在主内容下放置输入和状态信息
 st.markdown('<div class="content-card">', unsafe_allow_html=True)
-# 使用更合理的列宽比例
-col_url, col_token, col_button = st.columns([2, 1.5, 1])
 
-with col_url:
+# 使用两列布局
+col1, col2 = st.columns(2)
+
+with col1:
     video_url = st.text_input("B站视频链接", value="https://www.bilibili.com/video/BV11FutzbEAT/", help="输入B站视频链接")
 
-with col_token:
+with col2:
     access_token = st.text_input("API访问令牌", value=COZE_API_TOKEN, type="password", help="输入你的API访问令牌")
 
-with col_button:
-    st.write("")  # 添加一些空间使按钮对齐
-    submit_button = st.button("🚀 生成思维导图", use_container_width=True, disabled=st.session_state.is_processing)
-
-# 显示调用次数统计
+# 按钮和调用次数信息
+submit_button = st.button("🚀 生成思维导图", use_container_width=True, disabled=st.session_state.is_processing)
 st.info(f"今日已调用次数: {st.session_state.call_count}/{MAX_CALLS_PER_SESSION} (每日限额)")
+
 st.markdown('</div>', unsafe_allow_html=True)
 
 # 检查调用限制
@@ -403,47 +420,32 @@ if st.session_state.result_data:
     # 使用容器和CSS确保所有列高度一致
     st.markdown('<div class="content-card">', unsafe_allow_html=True)
     
-    # 使用更合理的列宽比例
-    col1, col2, col3, col4 = st.columns([1, 1, 1, 1.2])
-    
     workflow_data = st.session_state.result_data
     
-    # 第一列：逐字稿编辑区
-    with col1:
-        st.markdown('<h3 style="color: #23ADE5;">逐字稿编辑区</h3>', unsafe_allow_html=True)
-        transcript = st.text_area(
-            "逐字稿", 
-            value=workflow_data.get("transcript", ""), 
-            height=600,
-            key="transcript_edit"
-        )
+    # 思维导图链接
+    if "mindmap_url" in workflow_data and workflow_data["mindmap_url"]:
+        st.markdown(f'<a href="{workflow_data["mindmap_url"]}" target="_blank" style="background-color: #FB7299; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px; display: inline-block; margin-top: 10px;"><span>🔗 在线编辑思维导图</span></a>', unsafe_allow_html=True)
     
-    # 第二列：AI总结 markdown可编辑
-    with col2:
-        st.markdown('<h3 style="color: #23ADE5;">AI总结编辑区</h3>', unsafe_allow_html=True)
-        summary_md = st.text_area(
-            "AI总结 (Markdown格式)", 
-            value=workflow_data.get("summary", ""), 
-            height=600,
-            key="summary_edit"
-        )
+    # 思维导图展示区
+    st.markdown('<h3 style="color: #23ADE5;">思维导图</h3>', unsafe_allow_html=True)
+    if "mindmap_img" in workflow_data and workflow_data["mindmap_img"]:
+        try:
+            st.image(workflow_data["mindmap_img"], caption="生成的思维导图", use_column_width=True)
+        except:
+            st.error("无法显示思维导图图片")
     
-    # 第三列：AI总结 markdown预览区
-    with col3:
-        st.markdown('<h3 style="color: #23ADE5;">AI总结预览</h3>', unsafe_allow_html=True)
-        st.markdown(summary_md)
+    # AI总结预览区
+    st.markdown('<h3 style="color: #23ADE5;">AI总结预览</h3>', unsafe_allow_html=True)
+    st.markdown(workflow_data.get("summary", ""))
     
-    # 第四列：思维导图展示区
-    with col4:
-        st.markdown('<h3 style="color: #23ADE5;">思维导图</h3>', unsafe_allow_html=True)
-        if "mindmap_img" in workflow_data and workflow_data["mindmap_img"]:
-            try:
-                st.image(workflow_data["mindmap_img"], caption="生成的思维导图", use_column_width=True)
-            except:
-                st.error("无法显示思维导图图片")
-        
-        if "mindmap_url" in workflow_data and workflow_data["mindmap_url"]:
-            st.markdown(f'<a href="{workflow_data["mindmap_url"]}" target="_blank" style="background-color: #FB7299; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px; display: inline-block; margin-top: 10px;"><span>🔗 在线编辑思维导图</span></a>', unsafe_allow_html=True)
+    # 逐字稿编辑区
+    st.markdown('<h3 style="color: #23ADE5;">逐字稿编辑区</h3>', unsafe_allow_html=True)
+    st.text_area(
+        "逐字稿", 
+        value=workflow_data.get("transcript", ""), 
+        height=600,
+        key="transcript_edit"
+    )
     
     st.markdown('</div>', unsafe_allow_html=True)
 
