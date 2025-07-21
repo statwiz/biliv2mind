@@ -247,7 +247,7 @@ if 'result_data' not in st.session_state:
     st.session_state.result_data = None
 
 # 调用限制配置
-MAX_CALLS_PER_SESSION = 50  # 每个会话最大调用次数
+MAX_CALLS_PER_SESSION = 10  # 每个会话最大调用次数
 WORKFLOW_TIMEOUT = 20 * 60  # 工作流执行超时时间（秒）
 MAX_RETRY_COUNT = 3  # 最大重试次数
 
@@ -337,7 +337,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # 按钮代码
-submit_button = st.button("🚀 一建生成可编辑思维导图", use_container_width=True, disabled=st.session_state.is_processing)
+submit_button = st.button("🚀 一键生成可编辑思维导图", use_container_width=True, disabled=st.session_state.is_processing)
 st.info(f"今日已使用次数: {st.session_state.call_count}/{MAX_CALLS_PER_SESSION} (每日限额)")
 
 # 检查调用限制
@@ -515,7 +515,7 @@ if st.session_state.result_data:
     
     # 思维导图链接
     if "mindmap_url" in workflow_data and workflow_data["mindmap_url"]:
-        st.markdown(f'<a href="{workflow_data["mindmap_url"]}" target="_blank" style="background-color: #FB7299; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px; display: block; width: 100%; text-align: center; margin-top: 20px; margin-bottom: 20px;"><span>🔗 点击可在线编辑思维导图</span></a>', unsafe_allow_html=True)
+        st.markdown(f'<a href="{workflow_data["mindmap_url"]}" target="_blank" style="background-color: #FB7299; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px; display: block; width: 100%; text-align: center; margin-top: 20px; margin-bottom: 20px;"><span>🔗 点击可在线编辑思维导图(推荐使用xmind)</span></a>', unsafe_allow_html=True)
     
 
 
@@ -534,22 +534,31 @@ if st.session_state.result_data:
             st.error("无法显示思维导图图片")
     
     # AI总结编辑区
+    st.markdown("<h2 style='font-size: 18px; color: #FB7299; margin-bottom: 8px;'>AI总结(可以保存成.md文件再导入xmind生成思维导图)</h2>", unsafe_allow_html=True)
+
+    # 处理summary内容，去掉markdown格式标记
+    summary_content = workflow_data.get("summary", "")
+    if summary_content.startswith("```markdown"):
+        summary_content = summary_content.replace("```markdown", "", 1)
+    if summary_content.endswith("```"):
+        summary_content = summary_content[:-3]
+
     summary_md = st.text_area(
-        "AI总结", 
-        value=workflow_data.get("summary", ""), 
+        label="AI总结", 
+        value=summary_content, 
         height=400,
-        key="summary_edit"
+        key="summary_edit",
+        label_visibility="collapsed"
     )
 
-    # 显示预览
-    # st.markdown(summary_md, unsafe_allow_html=True)
-    
-    # 逐字稿编辑区
+    # AI总结编辑区
+    st.markdown("<h2 style='font-size: 19px; color: #FB7299; margin-bottom: 8px;'>视频逐字稿</h2>", unsafe_allow_html=True)
     transcript_md = st.text_area(
-        "视频逐字稿", 
+        label="视频逐字稿", 
         value=workflow_data.get("transcript", ""), 
         height=400,
-        key="transcript_edit"
+        key="transcript_edit",
+        label_visibility="collapsed"
     )
     
 
