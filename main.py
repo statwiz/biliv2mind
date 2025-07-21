@@ -18,7 +18,7 @@ ACCESS_KEY = st.secrets["my_service"]["ACCESS_KEY"]
 
 # 设置页面配置 - 改为centered布局
 st.set_page_config(
-    page_title="BiliBili ⇾ 思维导图",
+    page_title="BiliBili ⇾ MindMap",
     page_icon="🌸",
     layout="centered",  # 改为centered而不是wide
     initial_sidebar_state="collapsed"
@@ -426,9 +426,20 @@ if st.session_state.result_data:
         if "title" in workflow_data and workflow_data["title"]:
             st.markdown(f'<div class="video-title">{workflow_data["title"]}</div>', unsafe_allow_html=True)
 
-        tab1, tab2, tab3 = st.tabs(["🧠 思维导图", "📄 AI总结", "📝 逐字稿"])
+        tab1, tab2, tab3 = st.tabs(["📝 逐字稿", "📄 AI总结", "🧠 思维导图"])
 
         with tab1:
+            transcript_content = workflow_data.get("transcript", "未能获取视频逐字稿。")
+            st.text_area("视频逐字稿", value=transcript_content, label_visibility="collapsed")
+
+        with tab2:
+            summary_content = workflow_data.get("summary", "未能生成AI总结。")
+            if summary_content.startswith("```markdown"): summary_content = summary_content.replace("```markdown", "", 1).strip()
+            if summary_content.endswith("```"): summary_content = summary_content[:-3].strip()
+            st.text_area("AI总结", value=summary_content, label_visibility="collapsed")
+            st.caption('提示：此Markdown文本可直接导入Xmind等工具生成思维导图。')
+
+        with tab3:
             if "mindmap_img" in workflow_data and workflow_data["mindmap_img"]:
                 mindmap_url = workflow_data.get("mindmap_url", "")
                 edit_link = f'<a href="{mindmap_url}" target="_blank">✍️ 在线编辑</a>' if mindmap_url else ""
@@ -442,17 +453,6 @@ if st.session_state.result_data:
                 """, unsafe_allow_html=True)
             else:
                 st.warning("未能生成思维导图图片。")
-
-        with tab2:
-            summary_content = workflow_data.get("summary", "未能生成AI总结。")
-            if summary_content.startswith("```markdown"): summary_content = summary_content.replace("```markdown", "", 1).strip()
-            if summary_content.endswith("```"): summary_content = summary_content[:-3].strip()
-            st.text_area("AI总结", value=summary_content, label_visibility="collapsed")
-            st.caption('提示：此Markdown文本也可以直接导入Xmind等工具生成思维导图。')
-
-        with tab3:
-            transcript_content = workflow_data.get("transcript", "未能获取视频逐字稿。")
-            st.text_area("视频逐字稿", value=transcript_content, label_visibility="collapsed")
         
         st.markdown('</div>', unsafe_allow_html=True)
 
