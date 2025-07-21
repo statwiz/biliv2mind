@@ -321,6 +321,18 @@ st.markdown("""
         padding: 0.5rem 1rem;
         font-weight: bold;
     }
+    
+    div.stButton > button p {
+        color: white !important;
+    }
+    
+    div.stButton > button:hover {
+        color: white !important;
+    }
+    
+    div.stButton > button span {
+        color: white !important;
+    }
     </style>
 """, unsafe_allow_html=True)
 
