@@ -103,6 +103,22 @@ st.markdown("""
         font-size: 1.5rem;
     }
     
+    .video-title {
+        text-align: center;
+        color: #23ADE5 !important;
+        font-size: 24px !important;
+        font-weight: bold;
+        margin-top: 20px !important;
+        margin-bottom: 20px !important;
+    }
+    .section-title {
+        font-size: 18px !important;
+        color: #23ADE5 !important;
+        margin-bottom: 8px !important;
+        font-weight: bold;
+        margin-top: 25px !important;
+    }
+
     /* 卡片样式 */
     .content-card {
         background-color: var(--bilibili-gray);
@@ -247,7 +263,7 @@ if 'result_data' not in st.session_state:
     st.session_state.result_data = None
 
 # 调用限制配置
-MAX_CALLS_PER_SESSION = 10  # 每个会话最大调用次数
+MAX_CALLS_PER_SESSION = 50  # 每个会话最大调用次数
 WORKFLOW_TIMEOUT = 20 * 60  # 工作流执行超时时间（秒）
 MAX_RETRY_COUNT = 3  # 最大重试次数
 
@@ -519,7 +535,7 @@ if st.session_state.result_data:
     # 显示视频标题
     if "title" in workflow_data and workflow_data["title"]:
         # 使用bilibili-blue颜色，居中显示，并减小字体
-        st.markdown(f'<h2 style="text-align: center; color: #23ADE5 !important; font-size: 24px;">{workflow_data["title"]}</h2>', unsafe_allow_html=True)
+        st.markdown(f'<div class="video-title">{workflow_data["title"]}</div>', unsafe_allow_html=True)
 
     # 思维导图展示区
     if "mindmap_img" in workflow_data and workflow_data["mindmap_img"]:
@@ -540,7 +556,7 @@ if st.session_state.result_data:
             st.error("无法显示思维导图图片")
 
     # AI总结编辑区
-    st.markdown("<h2 style='font-size: 18px; color: #23ADE5 !important; margin-bottom: 8px;'>AI总结(可以保存成.md文件再导入xmind生成思维导图)</h2>", unsafe_allow_html=True)
+    st.markdown("<div class='section-title'>AI总结(可以保存成.md文件再导入xmind生成思维导图)</div>", unsafe_allow_html=True)
 
     # 处理summary内容，去掉markdown格式标记
     summary_content = workflow_data.get("summary", "")
@@ -558,7 +574,7 @@ if st.session_state.result_data:
     )
 
     # AI总结编辑区
-    st.markdown("<h2 style='font-size: 19px; color: #23ADE5 !important; margin-bottom: 8px;'>视频逐字稿</h2>", unsafe_allow_html=True)
+    st.markdown("<div class='section-title'>视频逐字稿</div>", unsafe_allow_html=True)
     transcript_md = st.text_area(
         label="视频逐字稿", 
         value=workflow_data.get("transcript", ""), 
