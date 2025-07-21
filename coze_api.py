@@ -1,9 +1,8 @@
 import requests
 import json
-from config import BOT_ID, COZE_API_TOKEN, API_URL
 
 class CozeAPI:
-    def __init__(self, api_token=None, workflow_id=None):
+    def __init__(self, api_url=None, api_token=None, workflow_id=None):
         """
         初始化CozeAPI
         
@@ -11,9 +10,9 @@ class CozeAPI:
             api_token (str): Coze API令牌，默认使用配置文件中的值
             workflow_id (str): 工作流ID，默认使用配置文件中的值
         """
-        self.api_url = API_URL
-        self.api_token = api_token if api_token else COZE_API_TOKEN
-        self.workflow_id = workflow_id if workflow_id else BOT_ID
+        self.api_url = api_url
+        self.api_token = api_token 
+        self.workflow_id = workflow_id
         
     def run_workflow(self, parameters=None):
         """

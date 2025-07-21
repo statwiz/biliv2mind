@@ -7,7 +7,6 @@ from datetime import datetime, timedelta
 from pathlib import Path
 import hashlib
 from coze_api import CozeAPI
-from config import BOT_ID, COZE_API_TOKEN, API_URL, EXPECTED_PARAMS
 from utils import truncate_text, get_current_time, parse_workflow_response, parse_bilibili_url
 import streamlit.components.v1 as components
 
@@ -15,6 +14,7 @@ import streamlit.components.v1 as components
 BOT_ID = st.secrets["my_service"]["BOT_ID"]
 COZE_API_TOKEN = st.secrets["my_service"]["COZE_API_TOKEN"]
 API_URL = st.secrets["my_service"]["API_URL"]
+ACCESS_KEY = st.secrets["my_service"]["ACCESS_KEY"]
 
 # 设置页面配置为亮色主题，取消wide模式
 st.set_page_config(
@@ -293,13 +293,15 @@ with col1:
     )
 
 with col2:
-    access_token = st.text_input(
-        "访问令牌",
+    # 用户输入访问密钥
+    user_access_key = st.text_input(
+        "访问密钥",
         value="", 
         type="password", 
-        placeholder="请输入API访问令牌",
-        help="输入你的API访问令牌"
+        placeholder="请输入访问密钥",
+        help="输入访问密钥以使用应用"
     )
+
 
 # 确保在按钮代码之前应用 CSS
 st.markdown("""
@@ -377,8 +379,10 @@ def try_run_workflow(coze_api, parameters, max_retries=MAX_RETRY_COUNT):
 
 # 处理工作流调用
 if submit_button:
-    if not video_url or not access_token:
-        st.error("请填写B站视频链接和API访问令牌！")
+    if not video_url or not user_access_key:
+        st.error("请填写B站视频链接和访问秘钥！")
+    elif user_access_key != ACCESS_KEY:
+        st.error("访问秘钥不正确，无法使用应用。")
     else:
         # 解析B站视频链接
         is_valid_url, parsed_url = parse_bilibili_url(video_url)
@@ -409,7 +413,7 @@ if submit_button:
                         # 显示加载状态
                         with st.spinner("正在分析视频并生成思维导图..."):
                             start_time = time.time()
-                            coze_api = CozeAPI(access_token, BOT_ID)
+                            coze_api = CozeAPI(API_URL, COZE_API_TOKEN, BOT_ID)
                             
                             # 尝试调用工作流，最多重试指定次数
                             result, success = try_run_workflow(coze_api, parameters, MAX_RETRY_COUNT)
