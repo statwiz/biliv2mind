@@ -515,7 +515,7 @@ if st.session_state.result_data:
     
     # 思维导图链接
     if "mindmap_url" in workflow_data and workflow_data["mindmap_url"]:
-        st.markdown(f'<a href="{workflow_data["mindmap_url"]}" target="_blank" style="background-color: #B3D4FC; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px; display: block; width: 100%; text-align: center; margin-top: 20px; margin-bottom: 20px;"><span>🔗 点击可在线编辑思维导图(白嫖更推荐下方说的xmind方式)</span></a>', unsafe_allow_html=True)
+        st.markdown(f'<a href="{workflow_data["mindmap_url"]}" target="_blank" style="background-color: #23ADE5; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px; display: block; width: 100%; text-align: center; margin-top: 20px; margin-bottom: 20px;"><span>🔗 点击可在线编辑思维导图(白嫖更推荐下方说的xmind方式)</span></a>', unsafe_allow_html=True)
     
 
 
@@ -534,7 +534,7 @@ if st.session_state.result_data:
             st.error("无法显示思维导图图片")
     
     # AI总结编辑区
-    st.markdown("<h2 style='font-size: 18px; color: #FB7299; margin-bottom: 8px;'>AI总结(可以保存成.md文件再导入xmind生成思维导图)</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='font-size: 18px; color: #23ADE5; margin-bottom: 8px;'>AI总结(可以保存成.md文件再导入xmind生成思维导图)</h2>", unsafe_allow_html=True)
 
     # 处理summary内容，去掉markdown格式标记
     summary_content = workflow_data.get("summary", "")
@@ -552,7 +552,7 @@ if st.session_state.result_data:
     )
 
     # AI总结编辑区
-    st.markdown("<h2 style='font-size: 19px; color: #FB7299; margin-bottom: 8px;'>视频逐字稿</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='font-size: 19px; color: #23ADE5; margin-bottom: 8px;'>视频逐字稿</h2>", unsafe_allow_html=True)
     transcript_md = st.text_area(
         label="视频逐字稿", 
         value=workflow_data.get("transcript", ""), 
