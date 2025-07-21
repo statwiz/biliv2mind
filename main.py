@@ -16,17 +16,18 @@ COZE_API_TOKEN = st.secrets["my_service"]["COZE_API_TOKEN"]
 API_URL = st.secrets["my_service"]["API_URL"]
 ACCESS_KEY = st.secrets["my_service"]["ACCESS_KEY"]
 
-# 设置页面配置
+# 设置页面配置 - 改为centered布局
 st.set_page_config(
-    page_title="BiliBili ⇾ Mind Map",
+    page_title="BiliBili ⇾ 思维导图",
     page_icon="🌸",
-    layout="centered",  
+    layout="centered",  # 改为centered而不是wide
     initial_sidebar_state="collapsed"
 )
 
 # --- 全局CSS样式 ---
 st.markdown("""
 <style>
+    /* B站主题色 */
     :root {
         --bili-pink: #FB7299;
         --bili-blue: #23ADE5;
@@ -35,54 +36,90 @@ st.markdown("""
         --bili-grey-mid: #E3E5E7;
         --bili-text-main: #18191C;
         --bili-text-secondary: #61666D;
+        --bili-gradient: linear-gradient(90deg, #FC8BAD 0%, #FB7299 100%);
     }
 
     /* 隐藏默认的Streamlit页眉和页脚 */
-    header, footer { visibility: hidden; }
+    header, footer, #MainMenu {visibility: hidden;}
+    
+    /* 自定义滚动条 */
+    ::-webkit-scrollbar {
+        width: 8px;
+        height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+        background: var(--bili-grey-light);
+        border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb {
+        background: #CCCCCC;
+        border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: #AAAAAA;
+    }
 
-    /* 全局背景和字体 */
+    /* 全局背景和字体 - 移除背景图片，使用纯色背景 */
     .stApp {
-        background-color: var(--bili-grey-light);
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+        background-color: #F5F6F7;
+        font-family: "HarmonyOS Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
     }
-
-    /* 主内容容器 */
+    
+    /* 主内容容器 - 调整宽度和边距 */
     .main-container {
-        max-width: 720px;
-        margin: 2rem auto;
-        padding: 2rem 2.5rem;
-        background-color: var(--bili-white);
-        border-radius: 20px;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.06);
+        max-width: 800px;
+        margin: 1rem auto;
+        padding: 1.5rem;
+        background-color: white;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
     }
-
-    /* 标题区域 */
+    
+    /* 标题区域 - 简化设计 */
     .header-container {
         text-align: center;
-        margin-bottom: 2.5rem;
+        margin-bottom: 1.5rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--bili-grey-light);
     }
     .header-container h1 {
-        color: var(--bili-pink) !important; /* 强制标题为粉色 */
-        font-size: 2.2rem;
+        color: var(--bili-pink) !important;
+        font-size: 2rem;
         font-weight: 700;
         display: flex;
         align-items: center;
         justify-content: center;
-        gap: 12px;
+        gap: 8px;
+        margin-bottom: 0.3rem;
     }
     .header-container .subtitle {
         color: var(--bili-text-secondary);
         font-size: 1rem;
-        margin-top: -8px;
+        margin-top: 0;
     }
     
-    /* --- 自定义输入框样式 (参考B站搜索框) --- */
+    /* 输入框标签 */
+    .input-label {
+        font-weight: 600;
+        color: var(--bili-text-main);
+        margin-bottom: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    .input-label svg {
+        width: 18px;
+        height: 18px;
+        fill: var(--bili-pink);
+    }
+    
+    /* 自定义输入框样式 */
     div[data-testid="stTextInput"] input,
     div[data-testid="stPasswordInput"] input {
         background-color: var(--bili-grey-light) !important;
         border: 1px solid var(--bili-grey-light) !important;
-        border-radius: 12px !important;
-        padding: 14px 18px !important;
+        border-radius: 8px !important;
+        padding: 10px 14px !important;
         color: var(--bili-text-main) !important;
         transition: all 0.2s ease-in-out !important;
         box-shadow: none !important;
@@ -98,18 +135,17 @@ st.markdown("""
     /* 按钮样式 */
     .stButton > button {
         width: 100%;
-        background-color: var(--bili-pink) !important; /* 纯粉色背景 */
-        color: white;
-        border: none;
-        border-radius: 12px;
-        padding: 0.7rem 1.5rem;
-        font-weight: 600;
-        font-size: 1.1rem;
-        transition: all 0.2s ease;
-        margin-top: 0.5rem;
+        background: var(--bili-pink) !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 8px !important;
+        padding: 0.6rem 1rem !important;
+        font-weight: 600 !important;
+        font-size: 1rem !important;
+        transition: all 0.2s ease !important;
     }
     .stButton > button:hover {
-        opacity: 0.85;
+        opacity: 0.9;
     }
     .stButton > button:disabled {
         opacity: 0.5;
@@ -117,35 +153,40 @@ st.markdown("""
         cursor: not-allowed;
     }
     
-    /* 信息提示框 */
-    .stAlert {
-        border-radius: 12px !important;
-        background-color: #E9F5FE !important; /* 淡蓝色背景 */
-        border: none !important;
+    /* 使用限制信息 */
+    .usage-info {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        margin-top: 10px;
+        color: var(--bili-text-secondary);
+        font-size: 0.9rem;
+        background-color: #F0F7FF;
+        padding: 8px;
+        border-radius: 8px;
     }
-    .stAlert p {
-        color: var(--bili-blue) !important;
-        font-weight: 500 !important;
-    }
-
+    
     /* 结果区域 */
-    .results-container { margin-top: 2rem; }
+    .results-container {
+        margin-top: 1.5rem;
+    }
     .video-title {
         text-align: center;
         color: var(--bili-text-main) !important;
-        font-size: 1.6rem !important;
-        font-weight: 600;
-        margin-bottom: 1.5rem;
+        font-size: 1.5rem !important;
+        font-weight: 700;
+        margin-bottom: 1.2rem;
     }
     
     /* 自定义标签页 */
-    div[data-testid="stTabs"] { border: none; }
+    div[data-testid="stTabs"] {
+        border: none;
+    }
     div[data-testid="stTabs"] button {
         color: var(--bili-text-secondary);
-        border-bottom: 2px solid transparent;
-        border-radius: 0;
         font-weight: 600;
-        padding: 0.8rem 1rem;
+        padding: 0.6rem 1rem;
     }
     div[data-testid="stTabs"] button[aria-selected="true"] {
         color: var(--bili-pink);
@@ -153,29 +194,47 @@ st.markdown("""
     }
 
     /* 思维导图图片和链接 */
-    .mindmap-container { position: relative; width: 100%; }
-    .mindmap-container img { width: 100%; border-radius: 12px; border: 1px solid var(--bili-grey-mid); }
-    .mindmap-links { position: absolute; top: 15px; right: 15px; display: flex; gap: 10px; }
+    .mindmap-container {
+        position: relative;
+        width: 100%;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    .mindmap-container img {
+        width: 100%;
+        border-radius: 8px;
+        border: 1px solid var(--bili-grey-mid);
+    }
+    .mindmap-links {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        display: flex;
+        gap: 8px;
+    }
     .mindmap-links a {
         color: #fff;
-        background-color: rgba(0, 0, 0, 0.5);
-        padding: 5px 12px;
+        background-color: rgba(0, 0, 0, 0.6);
+        padding: 6px 12px;
         text-decoration: none;
         border-radius: 15px;
         font-size: 0.8rem;
-        transition: background-color 0.2s ease;
         font-weight: 500;
     }
-    .mindmap-links a:hover { background-color: rgba(0, 0, 0, 0.7); }
+    .mindmap-links a:hover {
+        background-color: var(--bili-pink);
+    }
 
     /* 文本区域 */
     .stTextArea textarea {
         background-color: var(--bili-grey-light);
         color: var(--bili-text-main);
-        border-radius: 12px;
+        border-radius: 8px;
         border: 1px solid var(--bili-grey-mid);
         padding: 0.75rem;
-        height: 450px !important;
+        height: 400px !important;
+        font-size: 0.9rem;
+        line-height: 1.5;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -258,8 +317,10 @@ def try_run_workflow(coze_api, parameters, max_retries=MAX_RETRY_COUNT):
 # --- UI 布局 ---
 st.markdown('<div class="main-container">', unsafe_allow_html=True)
 
-# 标题
-bili_icon_svg = '<svg viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="40" height="40"><path d="M777.514667 131.669333a53.333333 53.333333 0 0 1 0 75.434667L728.746667 255.829333h49.92A160 160 0 0 1 938.666667 415.872v320a160 160 0 0 1-160 160H245.333333A160 160 0 0 1 85.333333 735.872v-320a160 160 0 0 1 160-160h49.749334L246.4 207.146667a53.333333 53.333333 0 1 1 75.392-75.434667l113.152 113.152c3.370667 3.370667 6.186667 7.04 8.448 10.965333h137.088c2.261333-3.925333 5.12-7.68 8.490667-11.008l113.109333-113.152a53.333333 53.333333 0 0 1 75.434667 0z m1.152 231.253334H245.333333a53.333333 53.333333 0 0 0-53.205333 49.365333l-0.128 4.010667v320c0 28.117333 21.76 51.157333 49.365333 53.162666l3.968 0.170667h533.333334a53.333333 53.333333 0 0 0 53.205333-49.365333l0.128-3.968v-320c0-29.44-23.893333-53.333333-53.333333-53.333334z m-426.666667 106.666666c29.44 0 53.333333 23.893333 53.333333 53.333334v53.333333a53.333333 53.333333 0 1 1-106.666666 0v-53.333333c0-29.44 23.893333-53.333333 53.333333-53.333334z m320 0c29.44 0 53.333333 23.893333 53.333333 53.333334v53.333333a53.333333 53.333333 0 1 1-106.666666 0v-53.333333c0-29.44 23.893333-53.333333 53.333333-53.333334z" fill="currentColor"></path></svg>'
+# 标题区域
+bili_icon_svg = '<svg viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="40" height="40"><path d="M777.514667 131.669333a53.333333 53.333333 0 0 1 0 75.434667L728.746667 255.829333h49.92A160 160 0 0 1 938.666667 415.872v320a160 160 0 0 1-160 160H245.333333A160 160 0 0 1 85.333333 735.872v-320a160 160 0 0 1 160-160h49.749334L246.4 207.146667a53.333333 53.333333 0 1 1 75.392-75.434667l113.152 113.152c3.370667 3.370667 6.186667 7.04 8.448 10.965333h137.088c2.261333-3.925333 5.12-7.68 8.490667-11.008l113.109333-113.152a53.333333 53.333333 0 0 1 75.434667 0z m1.152 231.253334H245.333333a53.333333 53.333333 0 0 0-53.205333 49.365333l-0.128 4.010667v320c0 28.117333 21.76 51.157333 49.365333 53.162666l3.968 0.170667h533.333334a53.333333 53.333333 0 0 0 53.205333-49.365333l0.128-3.968v-320c0-29.44-23.893333-53.333333-53.333333-53.333334z" fill="currentColor"></path></svg>'
+
+# 标题区域
 st.markdown(f"""
 <div class="header-container">
     <h1>{bili_icon_svg} B站视频转思维导图</h1>
@@ -267,13 +328,39 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# 输入区域
-st.session_state.video_url = st.text_input("url", placeholder="请输入B站视频链接...", label_visibility="collapsed", key="url_input")
-st.session_state.access_key = st.text_input("key", type="password", placeholder="请输入您的访问密钥", label_visibility="collapsed", key="key_input")
+# 视频链接输入
+st.markdown("""
+<div class="input-label">
+    <svg viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="18" height="18">
+        <path d="M448 128a64 64 0 0 1 64 64v64h-64V192H192v640h256v-64h64v64a64 64 0 0 1-64 64H192a64 64 0 0 1-64-64V192a64 64 0 0 1 64-64h256z" fill="currentColor"></path>
+    </svg>
+    <span>视频链接</span>
+</div>
+""", unsafe_allow_html=True)
+
+st.session_state.video_url = st.text_input("视频链接", placeholder="请输入B站视频链接...", label_visibility="collapsed", key="url_input")
+
+# 访问密钥输入
+st.markdown("""
+<div class="input-label">
+    <svg viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" width="18" height="18">
+        <path d="M512 149.333333c117.824 0 213.333333 95.509333 213.333333 213.333334a213.141333 213.141333 0 0 1-91.477333 175.445333L725.333333 810.666667h-426.666666l91.477333-272.554667A213.141333 213.141333 0 0 1 298.666667 362.666667c0-117.824 95.509333-213.333333 213.333333-213.333334z" fill="currentColor"></path>
+    </svg>
+    <span>访问密钥</span>
+</div>
+""", unsafe_allow_html=True)
+
+st.session_state.access_key = st.text_input("密钥", type="password", placeholder="请输入您的访问密钥", label_visibility="collapsed", key="key_input")
 
 # 按钮和使用情况
 submit_button = st.button("🚀 一键生成", use_container_width=True, disabled=st.session_state.is_processing)
-st.info(f"今日已使用: {st.session_state.call_count}/{MAX_CALLS_PER_SESSION} 次")
+
+# 使用情况显示
+st.markdown(f"""
+<div class="usage-info">
+    今日已使用: {st.session_state.call_count}/{MAX_CALLS_PER_SESSION} 次
+</div>
+""", unsafe_allow_html=True)
 
 # --- 按钮提交逻辑 ---
 if submit_button:
@@ -302,7 +389,7 @@ if submit_button:
 
 # --- 处理和结果展示 ---
 if st.session_state.is_processing:
-    with st.spinner("🧠 AI正在解析视频，请稍候..."):
+    with st.spinner("🧠 AI正在解析视频内容，请稍候..."):
         is_valid_url, parsed_url = parse_bilibili_url(st.session_state.video_url)
         parameters = {"url": parsed_url, "title": "B站视频思维导图"}
         cache_key = json.dumps(parameters, sort_keys=True)
@@ -332,7 +419,7 @@ if st.session_state.result_data:
         st.error(f"处理失败: {st.session_state.result_data.get('message')}")
         if 'raw' in st.session_state.result_data: st.json(st.session_state.result_data['raw'])
     else:
-        st.success("视频分析完成！")
+        st.success("✅ 视频分析完成！")
         workflow_data = st.session_state.result_data
         st.markdown('<div class="results-container">', unsafe_allow_html=True)
         
@@ -353,7 +440,7 @@ if st.session_state.result_data:
                     <img src="{workflow_data["mindmap_img"]}" alt="生成的思维导图">
                 </div>
                 """, unsafe_allow_html=True)
-                st.caption("提示：下方的“AI总结”Markdown文本也可以直接导入Xmind等工具生成思维导图。")
+                st.caption('提示：下方的"AI总结"Markdown文本也可以直接导入Xmind等工具生成思维导图。')
             else:
                 st.warning("未能生成思维导图图片。")
 
@@ -370,6 +457,3 @@ if st.session_state.result_data:
         st.markdown('</div>', unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
-    
-    
-
