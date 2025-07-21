@@ -515,7 +515,7 @@ if st.session_state.result_data:
     
     # 思维导图链接
     if "mindmap_url" in workflow_data and workflow_data["mindmap_url"]:
-        st.markdown(f'<a href="{workflow_data["mindmap_url"]}" target="_blank" style="background-color: #FB7299; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px; display: block; width: 100%; text-align: center; margin-top: 20px; margin-bottom: 20px;"><span>🔗 点击可在线编辑思维导图(推荐使用xmind)</span></a>', unsafe_allow_html=True)
+        st.markdown(f'<a href="{workflow_data["mindmap_url"]}" target="_blank" style="background-color: #B3D4FC; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px; display: block; width: 100%; text-align: center; margin-top: 20px; margin-bottom: 20px;"><span>🔗 点击可在线编辑思维导图(白嫖更推荐下方说的xmind方式)</span></a>', unsafe_allow_html=True)
     
 
 
