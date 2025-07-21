@@ -440,7 +440,6 @@ if st.session_state.result_data:
                     <img src="{workflow_data["mindmap_img"]}" alt="生成的思维导图">
                 </div>
                 """, unsafe_allow_html=True)
-                st.caption('提示：下方的"AI总结"Markdown文本也可以直接导入Xmind等工具生成思维导图。')
             else:
                 st.warning("未能生成思维导图图片。")
 
@@ -449,6 +448,7 @@ if st.session_state.result_data:
             if summary_content.startswith("```markdown"): summary_content = summary_content.replace("```markdown", "", 1).strip()
             if summary_content.endswith("```"): summary_content = summary_content[:-3].strip()
             st.text_area("AI总结", value=summary_content, label_visibility="collapsed")
+            st.caption('提示：此Markdown文本也可以直接导入Xmind等工具生成思维导图。')
 
         with tab3:
             transcript_content = workflow_data.get("transcript", "未能获取视频逐字稿。")
