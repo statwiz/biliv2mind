@@ -26,8 +26,6 @@ Thumbs.db
 # 日志文件
 *.log
 
-# 本地配置
-config_local.py 
 
 #cursor
 .cursor/
