@@ -336,9 +336,9 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+st.info(f"今日已使用次数: {st.session_state.call_count}/{MAX_CALLS_PER_SESSION} (每日限额)")
 # 按钮代码
 submit_button = st.button("🚀 一键生成可编辑思维导图", use_container_width=True, disabled=st.session_state.is_processing)
-st.info(f"今日已使用次数: {st.session_state.call_count}/{MAX_CALLS_PER_SESSION} (每日限额)")
 
 # 检查调用限制
 def check_call_limits():
