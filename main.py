@@ -49,7 +49,7 @@ st.markdown("""
     
     /* 强制所有第一个元素没有上边距 */
     div.element-container:first-child {
-        margin-top: -70px !important;
+        margin-top: -20px !important;
         padding-top: 0 !important;
     }
 
@@ -79,7 +79,7 @@ st.markdown("""
     /* 主内容容器 - 调整宽度和边距 */
     .main-container {
         max-width: 800px;
-        margin-top: -20px !important;
+        margin-top: 20px !important;
         margin-left: auto;
         margin-right: auto;
         padding: 1.5rem;
