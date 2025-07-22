@@ -110,10 +110,6 @@ st.markdown("""
         color: var(--bili-pink) !important;
         font-size: 2rem;
         font-weight: 700;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 8px;
         margin-bottom: 0.3rem;
     }
     .header-container .subtitle {
