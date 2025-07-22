@@ -252,7 +252,6 @@ st.markdown("""
         border-radius: 8px;
         border: 1px solid var(--bili-grey-mid);
         padding: 0.75rem;
-        height: 400px !important;
         font-size: 0.9rem;
         line-height: 1.5;
     }
@@ -297,7 +296,7 @@ def save_usage_data(data):
 def save_results_cache(data):
     with open(RESULTS_CACHE_FILE, "wb") as f:
         pickle.dump(data, f)
-
+    
 def get_user_usage(user_id):
     usage_data = load_usage_data()
     if user_id not in usage_data:
@@ -480,25 +479,52 @@ if st.session_state.result_data:
         if "title" in workflow_data and workflow_data["title"]:
             st.markdown(f'<div class="video-title">{workflow_data["title"]}</div>', unsafe_allow_html=True)
 
-        tab1, tab2, tab3 = st.tabs(["📝 逐字稿", "📄 AI总结", "🧠 思维导图"])
+        # 调整tab顺序：AI总结、思维导图、逐字稿
+        tab1, tab2, tab3 = st.tabs(["📄 AI总结", "🧠 思维导图", "📝 逐字稿"])
 
         with tab1:
-            transcript_content = workflow_data.get("transcript", "未能获取视频逐字稿。")
-            st.text_area("视频逐字稿", value=transcript_content, label_visibility="collapsed")
+            summary_content = workflow_data.get("summary", "未能生成AI总结。")
+            # 自定义AI总结markdown标题字号，防止过大
+            st.markdown("""
+            <style>
+            .ai-summary-markdown h1 {font-size: 1.5rem !important;}
+            .ai-summary-markdown h2 {font-size: 1.25rem !important;}
+            .ai-summary-markdown h3 {font-size: 1.1rem !important;}
+            .ai-summary-markdown h4 {font-size: 1rem !important;}
+            .ai-summary-markdown h5 {font-size: 0.95rem !important;}
+            .ai-summary-markdown h6 {font-size: 0.9rem !important;}
+            .ai-summary-markdown code {font-size: 1.08em !important; font-weight: 600;}
+            </style>
+            """, unsafe_allow_html=True)
+            # 去除 markdown 代码块包裹，防止原样显示
+            raw_md = summary_content  # 保留原始markdown源码
+            if raw_md.startswith("```markdown"): raw_md = raw_md.replace("```markdown", "", 1).strip()
+            if raw_md.endswith("```"): raw_md = raw_md[:-3].strip()
+            summary_md = raw_md  # 预览和复制都用同一份
+            st.markdown(f'<div class="ai-summary-markdown">{summary_md}</div>', unsafe_allow_html=True)
+            # 复制按钮（恢复为较大样式）
+            components.html(f'''
+            <button id="copy-md-btn" style="margin:10px 0;padding:6px 16px;border-radius:6px;border:none;background:#FB7299;color:#fff;font-weight:600;cursor:pointer;font-size:1.08rem;line-height:1.2;">复制Markdown源码</button>
+            <textarea id="md-src" style="position:absolute;left:-9999px;">{summary_md.replace("'", "&#39;").replace('"', '&quot;')}</textarea>
+            <script>
+            document.getElementById('copy-md-btn').onclick = function() {{
+                var ta = document.getElementById('md-src');
+                ta.style.display = 'block';
+                ta.select();
+                document.execCommand('copy');
+                ta.style.display = 'none';
+                this.innerText = '已复制!';
+                setTimeout(()=>{{this.innerText='复制Markdown源码'}}, 1200);
+            }}
+            </script>
+            ''', height=50)
+            st.caption('提示：此Markdown文本保存成.md文件可直接导入Xmind等工具生成思维导图。')
 
         with tab2:
-            summary_content = workflow_data.get("summary", "未能生成AI总结。")
-            if summary_content.startswith("```markdown"): summary_content = summary_content.replace("```markdown", "", 1).strip()
-            if summary_content.endswith("```"): summary_content = summary_content[:-3].strip()
-            st.text_area("AI总结", value=summary_content, label_visibility="collapsed")
-            st.caption('提示：此Markdown文本可直接导入Xmind等工具生成思维导图。')
-
-        with tab3:
             if "mindmap_img" in workflow_data and workflow_data["mindmap_img"]:
                 mindmap_url = workflow_data.get("mindmap_url", "")
                 edit_link = f'<a href="{mindmap_url}" target="_blank">✍️ 在线编辑</a>' if mindmap_url else ""
                 view_link = f'<a href="{workflow_data["mindmap_img"]}" target="_blank">🔍 查看大图</a>'
-                
                 st.markdown(f"""
                 <div class="mindmap-container">
                     <div class="mindmap-links">{edit_link}{view_link}</div>
@@ -507,6 +533,10 @@ if st.session_state.result_data:
                 """, unsafe_allow_html=True)
             else:
                 st.warning("未能生成思维导图图片。")
+
+        with tab3:
+            transcript_content = workflow_data.get("transcript", "未能获取视频逐字稿。")
+            st.text_area("视频逐字稿", value=transcript_content, label_visibility="collapsed", height=800)
         
         st.markdown('</div>', unsafe_allow_html=True)
 
