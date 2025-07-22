@@ -503,9 +503,26 @@ if st.session_state.result_data:
             summary_md = raw_md  # 预览和复制都用同一份
             st.markdown(f'<div class="ai-summary-markdown">{summary_md}</div>', unsafe_allow_html=True)
             # 复制按钮（更协调）
+            
+            # 准备要复制的完整内容
+            video_link = st.session_state.video_url
+            
+            # 将视频来源插入到标题下方
+            summary_lines = summary_md.split('\n', 1)
+            link_text = f"[_视频来源_]({video_link})"
+            
+            if len(summary_lines) > 1:
+                # 如果内容包含换行符（即有标题和正文），则将链接插入标题下方
+                title = summary_lines[0]
+                content = summary_lines[1]
+                full_content_to_copy = f"{title}\n\n{link_text}\n\n{content}"
+            else:
+                # 如果内容只有一行（或为空），则将链接附加到末尾
+                full_content_to_copy = f"{summary_md}\n\n{link_text}"
+
             components.html(f'''
             <button id="copy-md-btn" style="margin:0px 0;padding:6px 16px;border-radius:8px;border:none;background:#FB7299;color:#fff;font-weight:600;cursor:pointer;font-size:0.85rem;line-height:1.2;width:auto;white-space:normal;text-align:center;">点击复制文件</button>
-            <textarea id="md-src" style="position:absolute;left:-9999px;">{summary_md.replace("'", "&#39;").replace('"', '&quot;')}</textarea>
+            <textarea id="md-src" style="position:absolute;left:-9999px;">{full_content_to_copy.replace("'", "&#39;").replace('"', '&quot;')}</textarea>
             <script>
             document.getElementById('copy-md-btn').onclick = function() {{
                 var ta = document.getElementById('md-src');
