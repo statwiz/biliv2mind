@@ -42,6 +42,17 @@ st.markdown("""
     /* 隐藏默认的Streamlit页眉和页脚 */
     header, footer, #MainMenu {visibility: hidden;}
     
+    /* 隐藏默认空白元素 */
+    div:empty, div[data-testid="stTextInput"]:empty {
+        display: none !important;
+    }
+    
+    /* 强制所有第一个元素没有上边距 */
+    div.element-container:first-child {
+        margin-top: -70px !important;
+        padding-top: 0 !important;
+    }
+
     /* 自定义滚动条 */
     ::-webkit-scrollbar {
         width: 8px;
@@ -68,7 +79,9 @@ st.markdown("""
     /* 主内容容器 - 调整宽度和边距 */
     .main-container {
         max-width: 800px;
-        margin: 1rem auto;
+        margin-top: -20px !important;
+        margin-left: auto;
+        margin-right: auto;
         padding: 1.5rem;
         background-color: white;
         border-radius: 12px;
