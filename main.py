@@ -264,6 +264,8 @@ st.markdown("""
 STORAGE_DIR = Path("./storage")
 STORAGE_DIR.mkdir(exist_ok=True)
 USAGE_FILE = STORAGE_DIR / "usage_data.pkl"
+RESULTS_CACHE_FILE = STORAGE_DIR / "results_cache.pkl"
+
 def get_user_identifier():
     try:
         client_ip = "unknown"
@@ -279,8 +281,23 @@ def load_usage_data():
             with open(USAGE_FILE, "rb") as f: return pickle.load(f)
         except: return {}
     return {}
+
+def load_results_cache():
+    if RESULTS_CACHE_FILE.exists():
+        try:
+            with open(RESULTS_CACHE_FILE, "rb") as f:
+                return pickle.load(f)
+        except (pickle.UnpicklingError, EOFError, ValueError):
+            return {}
+    return {}
+
 def save_usage_data(data):
     with open(USAGE_FILE, "wb") as f: pickle.dump(data, f)
+
+def save_results_cache(data):
+    with open(RESULTS_CACHE_FILE, "wb") as f:
+        pickle.dump(data, f)
+
 def get_user_usage(user_id):
     usage_data = load_usage_data()
     if user_id not in usage_data:
@@ -312,11 +329,27 @@ def check_call_limits():
     if st.session_state.call_count >= MAX_CALLS_PER_SESSION:
         return False, f"今日调用次数已达上限（{MAX_CALLS_PER_SESSION}次），请明天再来。"
     return True, ""
-def check_cache(parameters):
-    cache_key = json.dumps(parameters, sort_keys=True)
-    return st.session_state.get(cache_key)
+
+def check_cache(key):
+    # 优先检查会话缓存（速度最快）
+    if key in st.session_state:
+        return st.session_state[key]
+    
+    # 然后检查持久化文件缓存
+    cache_data = load_results_cache()
+    result = cache_data.get(key)
+    if result:
+        # 如果在文件缓存中找到，将其加载到会话缓存中以便下次快速访问
+        st.session_state[key] = result
+    return result
+
 def cache_result(key, result):
+    # 同时写入会话缓存和持久化文件缓存
     st.session_state[key] = result
+    cache_data = load_results_cache()
+    cache_data[key] = result
+    save_results_cache(cache_data)
+    
 def try_run_workflow(coze_api, parameters, max_retries=MAX_RETRY_COUNT):
     retry_count = 0
     last_error = None
@@ -403,6 +436,7 @@ if submit_button:
                 
                 if cached_result:
                     st.session_state.result_data = cached_result
+                    st.toast("🎉 命中缓存，快速加载！")
                 else:
                     st.session_state.is_processing = True
                 st.rerun()
