@@ -323,7 +323,7 @@ bili_icon_svg = '<svg viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3
 # 标题区域
 st.markdown(f"""
 <div class="header-container">
-    <h1>{bili_icon_svg} B站视频转思维导图</h1>
+    <h1>B站视频转思维导图</h1>
     <p class="subtitle">AI 智能解析视频内容，一键生成高清思维导图</p>
 </div>
 """, unsafe_allow_html=True)
