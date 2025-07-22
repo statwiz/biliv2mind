@@ -479,8 +479,8 @@ if st.session_state.result_data:
         if "title" in workflow_data and workflow_data["title"]:
             st.markdown(f'<div class="video-title">{workflow_data["title"]}</div>', unsafe_allow_html=True)
 
-        # 调整tab顺序：AI总结、思维导图、逐字稿
-        tab1, tab2, tab3 = st.tabs(["📄 AI总结", "🧠 思维导图", "📝 逐字稿"])
+        # 调整tab顺序：AI总结、逐字稿、思维导图
+        tab1, tab2, tab3 = st.tabs(["📄 AI总结", "📝 逐字稿", "🧠 思维导图"])
 
         with tab1:
             summary_content = workflow_data.get("summary", "未能生成AI总结。")
@@ -493,7 +493,7 @@ if st.session_state.result_data:
             .ai-summary-markdown h4 {font-size: 1rem !important;}
             .ai-summary-markdown h5 {font-size: 0.95rem !important;}
             .ai-summary-markdown h6 {font-size: 0.9rem !important;}
-            .ai-summary-markdown code {font-size: 1.08em !important; font-weight: 600;}
+            .ai-summary-markdown code {font-size: 1.08em !important;}
             </style>
             """, unsafe_allow_html=True)
             # 去除 markdown 代码块包裹，防止原样显示
@@ -502,9 +502,9 @@ if st.session_state.result_data:
             if raw_md.endswith("```"): raw_md = raw_md[:-3].strip()
             summary_md = raw_md  # 预览和复制都用同一份
             st.markdown(f'<div class="ai-summary-markdown">{summary_md}</div>', unsafe_allow_html=True)
-            # 复制按钮（恢复为较大样式）
+            # 复制按钮（更协调）
             components.html(f'''
-            <button id="copy-md-btn" style="margin:10px 0;padding:6px 16px;border-radius:6px;border:none;background:#FB7299;color:#fff;font-weight:600;cursor:pointer;font-size:1.08rem;line-height:1.2;">复制Markdown源码</button>
+            <button id="copy-md-btn" style="margin:0px 0;padding:6px 16px;border-radius:8px;border:none;background:#FB7299;color:#fff;font-weight:600;cursor:pointer;font-size:0.85rem;line-height:1.2;width:auto;white-space:normal;text-align:center;">点击复制文件</button>
             <textarea id="md-src" style="position:absolute;left:-9999px;">{summary_md.replace("'", "&#39;").replace('"', '&quot;')}</textarea>
             <script>
             document.getElementById('copy-md-btn').onclick = function() {{
@@ -514,13 +514,17 @@ if st.session_state.result_data:
                 document.execCommand('copy');
                 ta.style.display = 'none';
                 this.innerText = '已复制!';
-                setTimeout(()=>{{this.innerText='复制Markdown源码'}}, 1200);
+                setTimeout(()=>{{this.innerText='点击复制文件'}}, 1200);
             }}
             </script>
-            ''', height=50)
-            st.caption('提示：此Markdown文本保存成.md文件可直接导入Xmind等工具生成思维导图。')
+            ''', height=36)
+            st.caption('提示：此文本保存成.md文件可直接导入Xmind等工具生成思维导图进行编辑。')
 
         with tab2:
+            transcript_content = workflow_data.get("transcript", "未能获取视频逐字稿。")
+            st.text_area("视频逐字稿", value=transcript_content, label_visibility="collapsed", height=800)
+
+        with tab3:
             if "mindmap_img" in workflow_data and workflow_data["mindmap_img"]:
                 mindmap_url = workflow_data.get("mindmap_url", "")
                 edit_link = f'<a href="{mindmap_url}" target="_blank">✍️ 在线编辑</a>' if mindmap_url else ""
@@ -533,10 +537,6 @@ if st.session_state.result_data:
                 """, unsafe_allow_html=True)
             else:
                 st.warning("未能生成思维导图图片。")
-
-        with tab3:
-            transcript_content = workflow_data.get("transcript", "未能获取视频逐字稿。")
-            st.text_area("视频逐字稿", value=transcript_content, label_visibility="collapsed", height=800)
         
         st.markdown('</div>', unsafe_allow_html=True)
 
