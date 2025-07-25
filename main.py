@@ -17,6 +17,26 @@ COZE_API_TOKEN = st.secrets["my_service"]["COZE_API_TOKEN"]
 API_URL = st.secrets["my_service"]["API_URL"]
 ACCESS_KEY = st.secrets["my_service"]["ACCESS_KEY"]
 
+# 新BOT配置
+NEW_BOT_ID = st.secrets["my_service"]["NEW_BOT_ID"]  # "7530822380694323240"
+
+# B站Cookie配置
+BILI_COOKIES = {
+    "SESSDATA": st.secrets["my_service"]["SESSDATA"],
+    "bili_jct": st.secrets["my_service"]["bili_jct"],
+    "DedeUserID": st.secrets["my_service"]["DedeUserID"],
+}
+
+# 可选的额外Cookie字段
+optional_cookies = ["DedeUserID__ckMd5", "sid", "buvid3", "buvid_fp"]
+for cookie in optional_cookies:
+    if cookie in st.secrets["my_service"]:
+        BILI_COOKIES[cookie] = st.secrets["my_service"][cookie]
+
+# API调用次数限制
+MAX_PRIMARY_RETRY = 2  # 新API最多调用2次
+MAX_BACKUP_RETRY = 2   # 旧API最多调用2次
+
 # 定义Bilibili小电视图标SVG
 bili_svg = """
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
@@ -31,7 +51,7 @@ bili_svg_base64 = base64.b64encode(bili_svg.encode()).decode()
 st.set_page_config(
     page_title="BiliBili ⇾ MindMap",
     page_icon=f"data:image/svg+xml;base64,{bili_svg_base64}",
-    layout="centered",  # 改为centered而不是wide
+    layout="centered",
     initial_sidebar_state="collapsed"
 )
 
@@ -258,8 +278,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-
-# --- 持久化和用户跟踪逻辑 (无需修改) ---
+# --- 持久化和用户跟踪逻辑 ---
 STORAGE_DIR = Path("./storage")
 STORAGE_DIR.mkdir(exist_ok=True)
 USAGE_FILE = STORAGE_DIR / "usage_data.pkl"
@@ -274,6 +293,7 @@ def get_user_identifier():
     today = datetime.now().strftime("%Y-%m-%d")
     identifier = f"{client_ip}_{today}"
     return hashlib.md5(identifier.encode()).hexdigest()
+    
 def load_usage_data():
     if USAGE_FILE.exists():
         try:
@@ -303,6 +323,7 @@ def get_user_usage(user_id):
         usage_data[user_id] = {"call_count": 0, "last_call_time": None, "call_history": {}}
         save_usage_data(usage_data)
     return usage_data[user_id]
+    
 def update_user_usage(user_id, call_count=None, last_call_time=None, call_history=None):
     usage_data = load_usage_data()
     if user_id not in usage_data: usage_data[user_id] = {"call_count": 0, "last_call_time": None, "call_history": {}}
@@ -310,6 +331,7 @@ def update_user_usage(user_id, call_count=None, last_call_time=None, call_histor
     if last_call_time is not None: usage_data[user_id]["last_call_time"] = last_call_time
     if call_history is not None: usage_data[user_id]["call_history"] = call_history
     save_usage_data(usage_data)
+    
 user_id = get_user_identifier()
 user_usage = get_user_usage(user_id)
 if 'call_count' not in st.session_state: st.session_state.call_count = user_usage["call_count"]
@@ -321,9 +343,8 @@ if 'access_key' not in st.session_state: st.session_state.access_key = ""
 
 # --- 配置 ---
 MAX_CALLS_PER_SESSION = 50
-MAX_RETRY_COUNT = 3
 
-# --- API 调用和缓存逻辑 (无需修改) ---
+# --- API 调用和缓存逻辑 ---
 def check_call_limits():
     if st.session_state.call_count >= MAX_CALLS_PER_SESSION:
         return False, f"今日调用次数已达上限（{MAX_CALLS_PER_SESSION}次），请明天再来。"
@@ -349,22 +370,102 @@ def cache_result(key, result):
     cache_data[key] = result
     save_results_cache(cache_data)
     
-def try_run_workflow(coze_api, parameters, max_retries=MAX_RETRY_COUNT):
-    retry_count = 0
-    last_error = None
-    while retry_count < max_retries:
+def try_run_workflow(video_url):
+    """
+    尝试运行工作流，先尝试新API，如果失败则回退到旧API
+    
+    参数:
+        video_url (str): 视频URL
+        
+    返回:
+        tuple: (结果, 成功标志, 使用的API)
+    """
+    # 创建API客户端
+    coze_api = CozeAPI(API_URL, COZE_API_TOKEN, None)
+    
+    # --- 尝试新API ---
+    success, result, api_used = False, None, None
+    
+    if NEW_BOT_ID:
         try:
-            result = coze_api.run_workflow(parameters)
-            if not result.get("error") and result.get("code") == 0:
-                return result, True
-            last_error = result.get("message", "未知错误")
-            retry_count += 1
-            if retry_count < max_retries: time.sleep(3)
-        except Exception as e:
-            last_error = str(e)
-            retry_count += 1
-            if retry_count < max_retries: time.sleep(3)
-    return {"error": True, "message": f"所有尝试均失败: {last_error}"}, False
+            # 尝试新API
+            coze_api.workflow_id = NEW_BOT_ID
+            
+            # 准备Cookie参数
+            result = None
+            retry_count = 0
+            
+            while not success and retry_count < MAX_PRIMARY_RETRY:
+                try:
+                    if retry_count > 0:
+                        st.info(f"正在重试视频提取 (尝试 {retry_count+1}/{MAX_PRIMARY_RETRY})...")
+                        
+                    # 调用API - 注意这里使用正确的参数名称
+                    result = coze_api.run_workflow_with_cookies(video_url, BILI_COOKIES)
+                    
+                    # 检查结果
+                    if not result.get("error") and result.get("code") == 0:
+                        success = True
+                        api_used = "new_api"
+                        break
+                    
+                    retry_count += 1
+                    if retry_count < MAX_PRIMARY_RETRY:
+                        time.sleep(1)
+                    
+                except Exception:
+                    retry_count += 1
+                    if retry_count < MAX_PRIMARY_RETRY:
+                        time.sleep(1)
+        except Exception:
+            pass
+    
+    # --- 如果新API失败，尝试旧API ---
+    if not success:
+        st.warning("本视频无可提取脚本，开启语音识别系统...")
+        
+        try:
+            # 重置API客户端
+            coze_api.workflow_id = BOT_ID
+            
+            retry_count = 0
+            while not success and retry_count < MAX_BACKUP_RETRY:
+                try:
+                    if retry_count > 0:
+                        st.info(f"正在重试备用API (尝试 {retry_count+1}/{MAX_BACKUP_RETRY})...")
+                        
+                    # 使用旧的参数格式
+                    result = coze_api.run_workflow({
+                        "url": video_url, 
+                        "title": "B站视频思维导图"
+                    })
+                    
+                    # 检查结果
+                    if not result.get("error") and result.get("code") == 0:
+                        success = True
+                        api_used = "old_api"
+                        break
+                    
+                    retry_count += 1
+                    if retry_count < MAX_BACKUP_RETRY:
+                        time.sleep(3)
+                        
+                except Exception:
+                    retry_count += 1
+                    if retry_count < MAX_BACKUP_RETRY:
+                        time.sleep(3)
+        except Exception:
+            pass
+    
+    # 如果两个API都失败了
+    if not success:
+        err_msg = result.get("message") if result and "message" in result else result.get("msg") if result else "未知错误"
+        return {
+            "error": True,
+            "message": f"无法解析视频: {err_msg}"
+        }, False, None
+    
+    return result, True, api_used
 
 # --- UI 布局 ---
 st.markdown('<div class="main-container">', unsafe_allow_html=True)
@@ -429,8 +530,8 @@ if submit_button:
             if not can_call:
                 st.error(message)
             else:
-                parameters = {"url": parsed_url, "title": "B站视频思维导图"}
-                cache_key = json.dumps(parameters, sort_keys=True)
+                cache_key = json.dumps({"url": parsed_url}, sort_keys=True)
+                
                 cached_result = check_cache(cache_key)
                 
                 if cached_result:
@@ -444,25 +545,39 @@ if submit_button:
 if st.session_state.is_processing:
     with st.spinner("🧠 AI正在解析视频内容，请稍候..."):
         is_valid_url, parsed_url = parse_bilibili_url(st.session_state.video_url)
-        parameters = {"url": parsed_url, "title": "B站视频思维导图"}
-        cache_key = json.dumps(parameters, sort_keys=True)
+        cache_key = json.dumps({"url": parsed_url}, sort_keys=True)
         
-        coze_api = CozeAPI(API_URL, COZE_API_TOKEN, BOT_ID)
-        result, success = try_run_workflow(coze_api, parameters, MAX_RETRY_COUNT)
-
-        if success:
-            st.session_state.call_count += 1
-            st.session_state.last_call_time = datetime.now()
-            update_user_usage(user_id, call_count=st.session_state.call_count, last_call_time=st.session_state.last_call_time)
-            
-            parse_success, data = parse_workflow_response(result)
-            if parse_success:
-                st.session_state.result_data = data
-                cache_result(cache_key, data)
-            else:
-                st.session_state.result_data = {"error": True, "message": data, "raw": result}
+        # 检查缓存
+        cached_result = check_cache(cache_key)
+        if cached_result:
+            st.session_state.result_data = cached_result
+            st.toast("🎉 命中缓存，快速加载！")
+            if "api_used" in cached_result:
+                api_source = "主API" if cached_result["api_used"] == "new_api" else "备用API"
+                st.success(f"数据来源: {api_source}")
         else:
-             st.session_state.result_data = {"error": True, "message": result.get("message")}
+            # 尝试调用API（优先新API，失败则使用旧API）
+            result, success, api_used = try_run_workflow(parsed_url)
+
+            if success:
+                st.session_state.call_count += 1
+                st.session_state.last_call_time = datetime.now()
+                update_user_usage(user_id, call_count=st.session_state.call_count, last_call_time=st.session_state.last_call_time)
+                
+                parse_success, data = parse_workflow_response(result)
+                if parse_success:
+                    # 在结果数据中添加使用的API信息
+                    data["api_used"] = api_used
+                    st.session_state.result_data = data
+                    cache_result(cache_key, data)
+                    
+                    # 显示数据来源
+                    api_source = "主API" if api_used == "new_api" else "备用API"
+                    st.success(f"数据来源: {api_source}")
+                else:
+                    st.session_state.result_data = {"error": True, "message": data, "raw": result}
+            else:
+                st.session_state.result_data = {"error": True, "message": result.get("message")}
         
         st.session_state.is_processing = False
         st.rerun()
@@ -502,7 +617,6 @@ if st.session_state.result_data:
             if raw_md.endswith("```"): raw_md = raw_md[:-3].strip()
             summary_md = raw_md  # 预览和复制都用同一份
             st.markdown(f'<div class="ai-summary-markdown">{summary_md}</div>', unsafe_allow_html=True)
-            # 复制按钮（更协调）
             
             # 准备要复制的完整内容
             video_link = st.session_state.video_url

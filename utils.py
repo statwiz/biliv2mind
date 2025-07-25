@@ -79,7 +79,7 @@ def parse_workflow_response(response):
 
 def parse_bilibili_url(url):
     """
-    解析B站视频链接，提取视频ID
+    解析B站视频链接，提取视频ID并保留分P参数
     
     参数:
         url (str): B站视频链接
@@ -90,6 +90,10 @@ def parse_bilibili_url(url):
     try:
         if not url:
             return False, "视频链接不能为空"
+        
+        # 首先检查URL格式是否合法
+        if "bilibili.com/video/" not in url:
+            return False, "请提供完整的B站视频链接，如: https://www.bilibili.com/video/BV1xx411c7mD/"
             
         # 尝试匹配BV号
         bv_pattern = r'(?:BV|bv)([a-zA-Z0-9]+)'
@@ -97,8 +101,19 @@ def parse_bilibili_url(url):
         
         if bv_match:
             bv_id = f"BV{bv_match.group(1)}"
-            # 构造标准格式的B站链接
-            return True, f"https://www.bilibili.com/video/{bv_id}/"
+            
+            # 构造规范的视频URL
+            video_url = f"https://www.bilibili.com/video/{bv_id}/"
+            
+            # 检查是否包含分P参数
+            p_pattern = r'[?&]p=(\d+)'
+            p_match = re.search(p_pattern, url)
+            
+            if p_match:
+                p_value = p_match.group(1)
+                video_url = f"{video_url}?p={p_value}"
+                
+            return True, video_url
         
         # 如果没有匹配到BV号，尝试匹配AV号
         av_pattern = r'(?:AV|av)(\d+)'
@@ -106,7 +121,19 @@ def parse_bilibili_url(url):
         
         if av_match:
             av_id = f"av{av_match.group(1)}"
-            return True, f"https://www.bilibili.com/video/{av_id}/"
+            
+            # 构造规范的视频URL
+            video_url = f"https://www.bilibili.com/video/{av_id}/"
+            
+            # 检查是否包含分P参数
+            p_pattern = r'[?&]p=(\d+)'
+            p_match = re.search(p_pattern, url)
+            
+            if p_match:
+                p_value = p_match.group(1)
+                video_url = f"{video_url}?p={p_value}"
+                
+            return True, video_url
         
         # 如果都没有匹配到，则认为链接格式不正确
         return False, "无法识别的B站视频链接格式，请确保链接包含正确的BV号或AV号"
