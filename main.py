@@ -666,7 +666,7 @@ if st.session_state.is_processing:
 
 if st.session_state.result_data:
     if st.session_state.result_data.get("error"):
-        st.error(f"处理失败: {st.session_state.result_data.get('message')}")
+        st.error(f"{st.session_state.result_data.get('message')}")
         if 'raw' in st.session_state.result_data: st.json(st.session_state.result_data['raw'])
     else:
         st.success("✅ 视频分析完成！")
