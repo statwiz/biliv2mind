@@ -11,14 +11,6 @@ from coze_api import CozeAPI
 from utils import truncate_text, get_current_time, parse_workflow_response, parse_bilibili_url
 import streamlit.components.v1 as components
 
-# 导入streamlit-markmap
-try:
-    from streamlit_markmap import markmap
-    MARKMAP_AVAILABLE = True
-except ImportError:
-    MARKMAP_AVAILABLE = False
-    st.warning("streamlit-markmap包未安装，将使用备用方案。如需完整功能，请运行: pip install streamlit-markmap")
-
 # 从 .streamlit/secrets.toml 中读取配置
 BOT_ID = st.secrets["my_service"]["BOT_ID"]
 COZE_API_TOKEN = st.secrets["my_service"]["COZE_API_TOKEN"]
