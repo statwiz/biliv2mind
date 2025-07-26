@@ -429,9 +429,20 @@ def try_run_workflow(video_url):
                     
                     # 检查结果
                     if not result.get("error") and result.get("code") == 0:
-                        success = True
-                        api_used = "new_api"
-                        break
+                        # 检查transcript是否为空
+                        try:
+                            parse_success, parsed_data = parse_workflow_response(result)
+                            if parse_success and parsed_data:
+                                transcript = parsed_data.get("transcript", "")
+                                if transcript and transcript.strip() != "":
+                                    success = True
+                                    api_used = "new_api"
+                                    break
+                        except Exception:
+                            # 如果解析失败，认为成功
+                            success = True
+                            api_used = "new_api"
+                            break
                     
                     retry_count += 1
                     if retry_count < MAX_PRIMARY_RETRY:
@@ -467,9 +478,20 @@ def try_run_workflow(video_url):
                     
                     # 检查结果
                     if not result.get("error") and result.get("code") == 0:
-                        success = True
-                        api_used = "old_api"
-                        break
+                        # 检查transcript是否为空
+                        try:
+                            parse_success, parsed_data = parse_workflow_response(result)
+                            if parse_success and parsed_data:
+                                transcript = parsed_data.get("transcript", "")
+                                if transcript and transcript.strip() != "":
+                                    success = True
+                                    api_used = "old_api"
+                                    break
+                        except Exception:
+                            # 如果解析失败，认为成功
+                            success = True
+                            api_used = "old_api"
+                            break
                     
                     retry_count += 1
                     if retry_count < MAX_BACKUP_RETRY:
@@ -486,25 +508,8 @@ def try_run_workflow(video_url):
     if not success:
         return {
             "error": True,
-            "message": "视频过大无法解析"
+            "message": "视频内容解析失败：无法获取视频脚本或语音识别结果为空"
         }, False, None
-    
-    # 检查返回的transcript是否为空
-    if success and result:
-        try:
-            # 解析响应数据
-            parse_success, parsed_data = parse_workflow_response(result)
-            if parse_success and parsed_data:
-                # 检查transcript字段
-                transcript = parsed_data.get("transcript", "")
-                if not transcript or transcript.strip() == "":
-                    return {
-                        "error": True,
-                        "message": "视频内容解析失败：无法获取视频脚本或语音识别结果为空"
-                    }, False, None
-        except Exception:
-            # 如果解析失败，继续返回原始结果
-            pass
     
     return result, True, api_used
 
