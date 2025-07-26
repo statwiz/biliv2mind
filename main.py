@@ -673,7 +673,7 @@ if st.session_state.result_data:
             }}
             </script>
             ''', height=36)
-            st.caption('提示：此文本保存成.md文件可直接导入Xmind等工具生成思维导图进行编辑。')
+            st.caption('提示：此文本保存成.md文件可直接导入Xmind或开源软件<a href="https://wanglin2.github.io/mind-map/#/" target="_blank">SimpleMindMap</a>生成思维导图进行编辑。', unsafe_allow_html=True)
 
         with tab2:
             transcript_content = workflow_data.get("transcript", "未能获取视频逐字稿。")
