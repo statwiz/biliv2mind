@@ -35,3 +35,7 @@ TODO.md
 
 # 忽略streamlit配置
 .streamlit/secrets.toml
+
+# 数据存储文件
+storage/
+*.pkl
