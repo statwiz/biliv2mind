@@ -10,28 +10,30 @@ import hashlib
 from coze_api import CozeAPI
 from utils import truncate_text, get_current_time, parse_workflow_response, parse_bilibili_url
 import streamlit.components.v1 as components
+from dotenv import load_dotenv
+load_dotenv()
 
 # 从 .streamlit/secrets.toml 中读取配置
-BOT_ID = st.secrets["my_service"]["BOT_ID"]
-COZE_API_TOKEN = st.secrets["my_service"]["COZE_API_TOKEN"]
-API_URL = st.secrets["my_service"]["API_URL"]
-ACCESS_KEY = st.secrets["my_service"]["ACCESS_KEY"]
+BOT_ID = os.environ.get("BOT_ID")
+COZE_API_TOKEN = os.environ.get("COZE_API_TOKEN")
+API_URL = os.environ.get("API_URL")
+ACCESS_KEY = os.environ.get("ACCESS_KEY")
 
 # 新BOT配置
-NEW_BOT_ID = st.secrets["my_service"]["NEW_BOT_ID"]  # "7530822380694323240"
+NEW_BOT_ID = os.environ.get("NEW_BOT_ID")  # "7530822380694323240"
 
 # B站Cookie配置
 BILI_COOKIES = {
-    "SESSDATA": st.secrets["my_service"]["SESSDATA"],
-    "bili_jct": st.secrets["my_service"]["bili_jct"],
-    "DedeUserID": st.secrets["my_service"]["DedeUserID"],
+    "SESSDATA": os.environ.get("SESSDATA"),
+    "bili_jct": os.environ.get("bili_jct"),
+    "DedeUserID": os.environ.get("DedeUserID"),
 }
 
 # 可选的额外Cookie字段
 optional_cookies = ["DedeUserID__ckMd5", "sid", "buvid3", "buvid_fp"]
 for cookie in optional_cookies:
-    if cookie in st.secrets["my_service"]:
-        BILI_COOKIES[cookie] = st.secrets["my_service"][cookie]
+    if cookie in os.environ:
+        BILI_COOKIES[cookie] = os.environ.get(cookie)
 
 # API调用次数限制
 MAX_PRIMARY_RETRY = 2  # 新API最多调用2次
