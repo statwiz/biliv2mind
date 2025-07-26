@@ -49,7 +49,7 @@ bili_svg_base64 = base64.b64encode(bili_svg.encode()).decode()
 
 # 设置页面配置 - 改为centered布局
 st.set_page_config(
-    page_title="BiliBili ⇾ MindMap",
+    page_title="Bili2Mind",
     page_icon=f"data:image/svg+xml;base64,{bili_svg_base64}",
     layout="centered",
     initial_sidebar_state="collapsed"
@@ -364,10 +364,33 @@ def check_cache(key):
     return result
 
 def cache_result(key, result):
-    # 同时写入会话缓存和持久化文件缓存
+    # 增加时间戳
+    from datetime import datetime, timedelta
+    now = datetime.now()
+    if isinstance(result, dict):
+        result = result.copy()
+        result['timestamp'] = now
     st.session_state[key] = result
     cache_data = load_results_cache()
     cache_data[key] = result
+    # 清理只保留14天内的缓存
+    cutoff = now - timedelta(days=14)
+    keys_to_delete = []
+    for k, v in cache_data.items():
+        ts = v.get('timestamp') if isinstance(v, dict) else None
+        if ts and isinstance(ts, datetime):
+            if ts < cutoff:
+                keys_to_delete.append(k)
+        elif ts and isinstance(ts, str):
+            # 兼容字符串时间戳
+            try:
+                tsv = datetime.fromisoformat(ts)
+                if tsv < cutoff:
+                    keys_to_delete.append(k)
+            except Exception:
+                pass
+    for k in keys_to_delete:
+        del cache_data[k]
     save_results_cache(cache_data)
     
 def try_run_workflow(video_url):
@@ -398,8 +421,9 @@ def try_run_workflow(video_url):
             while not success and retry_count < MAX_PRIMARY_RETRY:
                 try:
                     if retry_count > 0:
-                        st.info(f"正在重试视频提取 (尝试 {retry_count+1}/{MAX_PRIMARY_RETRY})...")
-                        
+                        # st.info(f"正在重试视频脚本提取 (尝试 {retry_count+1}/{MAX_PRIMARY_RETRY})...")
+                        pass
+                    
                     # 调用API - 注意这里使用正确的参数名称
                     result = coze_api.run_workflow_with_cookies(video_url, BILI_COOKIES)
                     
@@ -422,7 +446,7 @@ def try_run_workflow(video_url):
     
     # --- 如果新API失败，尝试旧API ---
     if not success:
-        st.warning("本视频无可提取脚本，开启语音识别系统...")
+        st.warning("本视频无可提取脚本，开始语音识别，请耐心等待...")
         
         try:
             # 重置API客户端
@@ -432,7 +456,8 @@ def try_run_workflow(video_url):
             while not success and retry_count < MAX_BACKUP_RETRY:
                 try:
                     if retry_count > 0:
-                        st.info(f"正在重试备用API (尝试 {retry_count+1}/{MAX_BACKUP_RETRY})...")
+                        # st.info(f"正在重试语音识别 (尝试 {retry_count+1}/{MAX_BACKUP_RETRY})...")
+                        pass
                         
                     # 使用旧的参数格式
                     result = coze_api.run_workflow({
@@ -459,10 +484,9 @@ def try_run_workflow(video_url):
     
     # 如果两个API都失败了
     if not success:
-        err_msg = result.get("message") if result and "message" in result else result.get("msg") if result else "未知错误"
         return {
             "error": True,
-            "message": f"无法解析视频: {err_msg}"
+            "message": "视频过大无法解析"
         }, False, None
     
     return result, True, api_used
