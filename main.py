@@ -489,6 +489,23 @@ def try_run_workflow(video_url):
             "message": "视频过大无法解析"
         }, False, None
     
+    # 检查返回的transcript是否为空
+    if success and result:
+        try:
+            # 解析响应数据
+            parse_success, parsed_data = parse_workflow_response(result)
+            if parse_success and parsed_data:
+                # 检查transcript字段
+                transcript = parsed_data.get("transcript", "")
+                if not transcript or transcript.strip() == "":
+                    return {
+                        "error": True,
+                        "message": "视频内容解析失败：无法获取视频脚本或语音识别结果为空"
+                    }, False, None
+        except Exception:
+            # 如果解析失败，继续返回原始结果
+            pass
+    
     return result, True, api_used
 
 # --- UI 布局 ---
@@ -559,8 +576,21 @@ if submit_button:
                 cached_result = check_cache(cache_key)
                 
                 if cached_result:
-                    st.session_state.result_data = cached_result
-                    st.toast("🎉 命中缓存，快速加载！")
+                    # 检查缓存的transcript是否为空
+                    transcript = cached_result.get("transcript", "")
+                    if not transcript or transcript.strip() == "":
+                        # 如果缓存的transcript为空，删除缓存并重新处理
+                        cache_data = load_results_cache()
+                        if cache_key in cache_data:
+                            del cache_data[cache_key]
+                            save_results_cache(cache_data)
+                        if cache_key in st.session_state:
+                            del st.session_state[cache_key]
+                        cached_result = None
+                        st.session_state.is_processing = True
+                    else:
+                        st.session_state.result_data = cached_result
+                        st.toast("🎉 命中缓存，快速加载！")
                 else:
                     st.session_state.is_processing = True
                 st.rerun()
@@ -574,11 +604,23 @@ if st.session_state.is_processing:
         # 检查缓存
         cached_result = check_cache(cache_key)
         if cached_result:
-            st.session_state.result_data = cached_result
-            st.toast("🎉 命中缓存，快速加载！")
-            if "api_used" in cached_result:
-                api_source = "主API" if cached_result["api_used"] == "new_api" else "备用API"
-                st.success(f"数据来源: {api_source}")
+            # 检查缓存的transcript是否为空
+            transcript = cached_result.get("transcript", "")
+            if not transcript or transcript.strip() == "":
+                # 如果缓存的transcript为空，删除缓存并重新处理
+                cache_data = load_results_cache()
+                if cache_key in cache_data:
+                    del cache_data[cache_key]
+                    save_results_cache(cache_data)
+                if cache_key in st.session_state:
+                    del st.session_state[cache_key]
+                cached_result = None
+            else:
+                st.session_state.result_data = cached_result
+                st.toast("🎉 命中缓存，快速加载！")
+                if "api_used" in cached_result:
+                    api_source = "主API" if cached_result["api_used"] == "new_api" else "备用API"
+                    st.success(f"数据来源: {api_source}")
         else:
             # 尝试调用API（优先新API，失败则使用旧API）
             result, success, api_used = try_run_workflow(parsed_url)
@@ -590,14 +632,23 @@ if st.session_state.is_processing:
                 
                 parse_success, data = parse_workflow_response(result)
                 if parse_success:
-                    # 在结果数据中添加使用的API信息
-                    data["api_used"] = api_used
-                    st.session_state.result_data = data
-                    cache_result(cache_key, data)
-                    
-                    # 显示数据来源
-                    api_source = "主API" if api_used == "new_api" else "备用API"
-                    st.success(f"数据来源: {api_source}")
+                    # 检查transcript内容是否为空
+                    transcript = data.get("transcript", "")
+                    if not transcript or transcript.strip() == "":
+                        st.session_state.result_data = {
+                            "error": True, 
+                            "message": "视频内容解析失败：无法获取视频脚本或语音识别结果为空",
+                            "raw": result
+                        }
+                    else:
+                        # 在结果数据中添加使用的API信息
+                        data["api_used"] = api_used
+                        st.session_state.result_data = data
+                        cache_result(cache_key, data)
+                        
+                        # 显示数据来源
+                        api_source = "主API" if api_used == "new_api" else "备用API"
+                        st.success(f"数据来源: {api_source}")
                 else:
                     st.session_state.result_data = {"error": True, "message": data, "raw": result}
             else:
