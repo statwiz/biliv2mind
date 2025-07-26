@@ -11,6 +11,14 @@ from coze_api import CozeAPI
 from utils import truncate_text, get_current_time, parse_workflow_response, parse_bilibili_url
 import streamlit.components.v1 as components
 
+# 导入streamlit-markmap
+try:
+    from streamlit_markmap import markmap
+    MARKMAP_AVAILABLE = True
+except ImportError:
+    MARKMAP_AVAILABLE = False
+    st.warning("streamlit-markmap包未安装，将使用备用方案。如需完整功能，请运行: pip install streamlit-markmap")
+
 # 从 .streamlit/secrets.toml 中读取配置
 BOT_ID = st.secrets["my_service"]["BOT_ID"]
 COZE_API_TOKEN = st.secrets["my_service"]["COZE_API_TOKEN"]
@@ -423,7 +431,7 @@ def try_run_workflow(video_url):
                     if retry_count > 0:
                         # st.info(f"正在重试视频脚本提取 (尝试 {retry_count+1}/{MAX_PRIMARY_RETRY})...")
                         pass
-                    
+                        
                     # 调用API - 注意这里使用正确的参数名称
                     result = coze_api.run_workflow_with_cookies(video_url, BILI_COOKIES)
                     
@@ -618,8 +626,8 @@ if st.session_state.result_data:
         if "title" in workflow_data and workflow_data["title"]:
             st.markdown(f'<div class="video-title">{workflow_data["title"]}</div>', unsafe_allow_html=True)
 
-        # 调整tab顺序：AI总结、逐字稿、思维导图
-        tab1, tab2, tab3 = st.tabs(["📄 AI总结", "📝 逐字稿", "🧠 思维导图"])
+        # 调整tab顺序：AI总结、逐字稿
+        tab1, tab2 = st.tabs(["📄 AI总结", "📝 逐字稿"])
 
         with tab1:
             summary_content = workflow_data.get("summary", "未能生成AI总结。")
@@ -673,25 +681,11 @@ if st.session_state.result_data:
             }}
             </script>
             ''', height=36)
-            st.caption('提示：此文本保存成.md文件可直接导入Xmind或开源软件<a href="https://wanglin2.github.io/mind-map/#/" target="_blank">SimpleMindMap</a>生成思维导图进行编辑。', unsafe_allow_html=True)
+            st.caption('提示：此文本保存成.md文件可直接导入Xmind或在线工具<a href="https://wanglin2.github.io/mind-map/#/" target="_blank" style="color:#FB7299;font-weight:600;text-decoration:underline;">SimpleMindMap</a>生成精美思维导图。', unsafe_allow_html=True)
 
         with tab2:
             transcript_content = workflow_data.get("transcript", "未能获取视频逐字稿。")
             st.text_area("视频逐字稿", value=transcript_content, label_visibility="collapsed", height=800)
-
-        with tab3:
-            if "mindmap_img" in workflow_data and workflow_data["mindmap_img"]:
-                mindmap_url = workflow_data.get("mindmap_url", "")
-                edit_link = f'<a href="{mindmap_url}" target="_blank">✍️ 在线编辑</a>' if mindmap_url else ""
-                view_link = f'<a href="{workflow_data["mindmap_img"]}" target="_blank">🔍 查看大图</a>'
-                st.markdown(f"""
-                <div class="mindmap-container">
-                    <div class="mindmap-links">{edit_link}{view_link}</div>
-                    <img src="{workflow_data["mindmap_img"]}" alt="生成的思维导图">
-                </div>
-                """, unsafe_allow_html=True)
-            else:
-                st.warning("未能生成思维导图图片。")
         
         st.markdown('</div>', unsafe_allow_html=True)
 
