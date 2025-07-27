@@ -127,10 +127,32 @@ st.markdown("""
         border-bottom: 1px solid var(--bili-grey-light);
     }
     .header-container h1 {
-        color: var(--bili-pink) !important;
-        font-size: 2rem;
-        font-weight: 700;
-        margin-bottom: 0.3rem;
+        color: #FB7299 !important;
+        font-size: 2rem !important;
+        font-weight: 700 !important;
+        margin-bottom: 0.3rem !important;
+        text-align: center !important;
+    }
+    
+    /* 确保主标题样式不被其他样式覆盖 */
+    div.header-container h1,
+    .main-container .header-container h1,
+    .header-container h1 {
+        color: #FB7299 !important;
+        font-size: 2rem !important;
+        font-weight: 700 !important;
+        margin-bottom: 0.3rem !important;
+        text-align: center !important;
+        display: block !important;
+    }
+    
+    /* 强制覆盖任何可能的样式 */
+    h1:first-of-type {
+        color: #FB7299 !important;
+        font-size: 2rem !important;
+        font-weight: 700 !important;
+        text-align: center !important;
+        display: block !important;
     }
     .header-container .subtitle {
         color: var(--bili-text-secondary);
@@ -522,7 +544,7 @@ bili_icon_svg = '<svg viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3
 # 标题区域
 st.markdown(f"""
 <div class="header-container">
-    <h1>B站视频转思维导图</h1>
+    <h1 style="color: #FB7299 !important; font-size: 2rem !important; font-weight: 700 !important; text-align: center !important; margin-bottom: 0.3rem !important; display: block !important;">B站视频转思维导图</h1>
     <p class="subtitle">AI 智能解析视频内容，一键生成高清思维导图</p>
 </div>
 """, unsafe_allow_html=True)
@@ -671,24 +693,35 @@ if st.session_state.result_data:
         workflow_data = st.session_state.result_data
         st.markdown('<div class="results-container">', unsafe_allow_html=True)
         
-        if "title" in workflow_data and workflow_data["title"]:
-            st.markdown(f'<div class="video-title">{workflow_data["title"]}</div>', unsafe_allow_html=True)
+        # 删除tab上方的标题显示
 
         # 调整tab顺序：AI总结、逐字稿
         tab1, tab2 = st.tabs(["📄 AI总结", "📝 逐字稿"])
 
         with tab1:
             summary_content = workflow_data.get("summary", "未能生成AI总结。")
-            # 自定义AI总结markdown标题字号，防止过大
+            # 使用更精确的选择器，只影响AI总结区域
             st.markdown("""
             <style>
-            .ai-summary-markdown h1 {font-size: 1.5rem !important;}
-            .ai-summary-markdown h2 {font-size: 1.25rem !important;}
-            .ai-summary-markdown h3 {font-size: 1.1rem !important;}
-            .ai-summary-markdown h4 {font-size: 1rem !important;}
-            .ai-summary-markdown h5 {font-size: 0.95rem !important;}
-            .ai-summary-markdown h6 {font-size: 0.9rem !important;}
-            .ai-summary-markdown code {font-size: 1.08em !important;}
+            /* 只影响AI总结tab内的markdown标题 */
+            div[data-testid="stTabs"] div[data-testid="stMarkdown"] h1 {
+                font-size: 1.6rem !important;
+                text-align: center !important;
+                color: #18191C !important;
+                font-weight: 700 !important;
+            }
+            div[data-testid="stTabs"] div[data-testid="stMarkdown"] h2 {
+                font-size: 1.2rem !important;
+                text-align: left !important;
+                color: #18191C !important;
+                font-weight: 600 !important;
+            }
+            div[data-testid="stTabs"] div[data-testid="stMarkdown"] h3 {
+                font-size: 1.1rem !important;
+                text-align: left !important;
+                color: #18191C !important;
+                font-weight: 600 !important;
+            }
             </style>
             """, unsafe_allow_html=True)
             # 去除 markdown 代码块包裹，防止原样显示
@@ -696,7 +729,9 @@ if st.session_state.result_data:
             if raw_md.startswith("```markdown"): raw_md = raw_md.replace("```markdown", "", 1).strip()
             if raw_md.endswith("```"): raw_md = raw_md[:-3].strip()
             summary_md = raw_md  # 预览和复制都用同一份
-            st.markdown(f'<div class="ai-summary-markdown">{summary_md}</div>', unsafe_allow_html=True)
+            
+            # 直接渲染AI总结内容，不使用CSS类
+            st.markdown(summary_md)
             
             # 准备要复制的完整内容
             video_link = st.session_state.video_url
