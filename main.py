@@ -705,7 +705,7 @@ if st.session_state.result_data:
             <style>
             /* 只影响AI总结tab内的markdown标题 */
             div[data-testid="stTabs"] div[data-testid="stMarkdown"] h1 {
-                font-size: 1.6rem !important;
+                font-size: 1.5rem !important;
                 text-align: center !important;
                 color: #18191C !important;
                 font-weight: 700 !important;
@@ -718,6 +718,24 @@ if st.session_state.result_data:
             }
             div[data-testid="stTabs"] div[data-testid="stMarkdown"] h3 {
                 font-size: 1.1rem !important;
+                text-align: left !important;
+                color: #18191C !important;
+                font-weight: 600 !important;
+            }
+            div[data-testid="stTabs"] div[data-testid="stMarkdown"] h4 {
+                font-size: 1rem !important;
+                text-align: left !important;
+                color: #18191C !important;
+                font-weight: 600 !important;
+            }
+            div[data-testid="stTabs"] div[data-testid="stMarkdown"] h5 {
+                font-size: 0.95rem !important;
+                text-align: left !important;
+                color: #18191C !important;
+                font-weight: 600 !important;
+            }
+            div[data-testid="stTabs"] div[data-testid="stMarkdown"] h6 {
+                font-size: 0.9rem !important;
                 text-align: left !important;
                 color: #18191C !important;
                 font-weight: 600 !important;
